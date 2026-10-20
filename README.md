@@ -4,17 +4,27 @@ Tài liệu này quy định quy trình và tiêu chuẩn kỹ thuật về vi�
 
 ---
 
-## 1. Cấu Trúc Thư Mục Nộp Bài
+## 1. Quy Chuẩn Thư Mục Và Nhánh (Branch) Làm Việc
+
+### 1.1. Cấu trúc thư mục nộp bài
 
 Mỗi nhóm sinh viên bắt buộc phải tạo một thư mục riêng biệt tại thư mục gốc của repository với quy tắc đặt tên như sau:
 
-- **Định dạng:** `<ten-nhom>-<ten-lop>`
+- **Định dạng thư mục:** `<ten-nhom>-<ten-lop>`
 - **Quy cách:** Viết chữ thường, không dấu, các từ nối nhau bằng dấu gạch ngang (`-`).
 - **Ví dụ hợp lệ:**
   - `nhom01-dhti15a1hn`
   - `nhom02-dhti15a2hn`
 
-### Sơ đồ cấu trúc cây thư mục mẫu
+### 1.2. Quy định tạo nhánh code riêng của nhóm (Bắt buộc)
+
+- **Nguyên tắc bắt buộc:** Mỗi nhóm sinh viên **phải tạo một nhánh riêng (dedicated branch)** để phát triển và quản trị toàn bộ mã nguồn của nhóm mình.
+- **Quy chuẩn đặt tên nhánh:**
+  - **Định dạng:** `nhom/<ten-nhom>-<ten-lop>`
+  - **Ví dụ hợp lệ:** `nhom/nhom01-dhti15a1hn`, `nhom/nhom02-dhti15a2hn`
+- **Nghiêm cấm:** Tuyệt đối **không được commit hoặc push trực tiếp lên nhánh `main`**. Nhánh `main` là nhánh tích hợp chung của toàn bộ môn học, chỉ được cập nhật khi giảng viên xem xét và duyệt Pull Request (PR) của nhóm.
+
+### 1.3. Sơ đồ cấu trúc cây thư mục mẫu
 
 ```text
 project-ptuddd/
@@ -113,14 +123,36 @@ git checkout main
 git pull origin main
 ```
 
-### Bước 2: Tạo hoặc chuyển sang nhánh làm việc của nhóm
+### Bước 2: Khởi tạo hoặc chuyển sang nhánh làm việc riêng của nhóm
 
-Mỗi nhóm làm việc trên một nhánh riêng biệt, không commit trực tiếp vào nhánh `main`:
+Mỗi nhóm sinh viên bắt buộc phải làm việc trên nhánh code riêng của nhóm mình theo tiền tố `nhom/<ten-nhom>-<ten-lop>`. Tuyệt đối không thao tác trực tiếp trên nhánh `main`.
+
+#### Trường hợp A: Khởi tạo nhánh nhóm mới (Trưởng nhóm hoặc người tạo đầu tiên)
+
+Từ nhánh `main` đã được đồng bộ mới nhất, tạo nhánh mới và đẩy lên GitHub:
 
 ```bash
-git checkout -b feature/<ten-nhom>-<ten-lop>
+# 1. Tạo và chuyển sang nhánh riêng của nhóm
+git checkout -b nhom/<ten-nhom>-<ten-lop>
+
+# 2. Đẩy nhánh nhóm lên GitHub để các thành viên khác có thể tải về
+git push -u origin nhom/<ten-nhom>-<ten-lop>
 ```
-*(Nếu nhánh đã tồn tại trên máy, sử dụng lệnh: `git checkout feature/<ten-nhom>-<ten-lop>`)*
+
+#### Trường hợp B: Lấy nhánh nhóm đã có về máy (Dành cho các thành viên còn lại)
+
+Khi nhánh của nhóm đã được tạo trên GitHub, các thành viên khác lấy nhánh về máy cục bộ bằng lệnh:
+
+```bash
+# 1. Cập nhật danh sách nhánh từ remote
+git fetch origin
+
+# 2. Chuyển sang nhánh của nhóm
+git checkout nhom/<ten-nhom>-<ten-lop>
+
+# 3. Kéo mã nguồn mới nhất của nhóm về máy
+git pull origin nhom/<ten-nhom>-<ten-lop>
+```
 
 ### Bước 3: Đặt mã nguồn và tài liệu vào đúng thư mục nhóm
 
@@ -139,6 +171,7 @@ git status
 **Quy tắc an toàn:**
 - Kiểm tra danh sách tệp trong mục *Untracked files* và *Changes not staged for commit*.
 - Bắt buộc tất cả các tệp thay đổi phải nằm bên trong đường dẫn thư mục nhóm `<ten-nhom>-<ten-lop>/`.
+- Xác nhận nhánh hiện tại đang đứng là nhánh riêng của nhóm: `On branch nhom/<ten-nhom>-<ten-lop>`. Nếu đang ở nhánh `main`, phải chuyển ngay sang nhánh nhóm trước khi thực hiện các bước tiếp theo.
 - Nếu phát hiện tệp nằm ngoài thư mục nhóm hoặc tệp rác (build, cache, .env), phải xóa hoặc đưa vào `.gitignore` trước khi tiếp tục.
 
 ### Bước 5: Đánh dấu tệp thay đổi (Stage) theo đúng đường dẫn thư mục nhóm
@@ -174,12 +207,12 @@ Thực hiện commit với thông điệp rõ ràng theo định dạng chuẩn:
   git commit -m "fix(<ten-nhom>): sua loi hien thi danh sach san pham"
   ```
 
-### Bước 7: Đẩy mã nguồn lên GitHub (Push)
+### Bước 7: Đẩy mã nguồn lên nhánh riêng của nhóm trên GitHub (Push)
 
-Đẩy nhánh làm việc lên kho lưu trữ cá nhân/nhóm:
+Đẩy toàn bộ thay đổi lên nhánh riêng của nhóm trên kho lưu trữ:
 
 ```bash
-git push origin feature/<ten-nhom>-<ten-lop>
+git push origin nhom/<ten-nhom>-<ten-lop>
 ```
 
 ### Bước 8: Mở Pull Request (PR)
@@ -188,7 +221,7 @@ git push origin feature/<ten-nhom>-<ten-lop>
 2. Hệ thống sẽ hiển thị gợi ý tạo Pull Request từ nhánh vừa push; chọn **Compare & pull request**.
 3. Cấu hình nhánh:
    - **Base repository:** `oanhcuongdo/project-ptuddd` | **base:** `main`
-   - **Head repository:** Kho của bạn | **compare:** `feature/<ten-nhom>-<ten-lop>`
+   - **Head repository:** Kho của bạn | **compare:** `nhom/<ten-nhom>-<ten-lop>`
 4. Đặt tiêu đề: `[Nộp bài] <Tên Nhóm> - <Tên Lớp>`.
 5. Phần nội dung (Description): Mô tả tóm tắt các tính năng đã thực hiện và liệt kê các thành viên nộp bài.
 6. Nhấn **Create pull request**. Giảng viên sẽ tiến hành review và hợp nhất mã nguồn.
@@ -200,8 +233,8 @@ git push origin feature/<ten-nhom>-<ten-lop>
 Đối với các nhóm có nhiều thành viên cùng phát triển đồng thời:
 
 1. **Phân chia nhánh nội bộ:**
-   - Các thành viên có thể tạo nhánh phụ từ nhánh nhóm: `feature/<ten-nhom>/<tinh-nang>` hoặc `<ten-nhom>-<ten-thanh-vien>`.
-   - Khi hoàn thành tính năng, tiến hành merge vào nhánh chính của nhóm `feature/<ten-nhom>-<ten-lop>` trước khi gửi Pull Request về kho gốc của giảng viên.
+   - Các thành viên có thể tạo nhánh phụ từ nhánh nhóm: `feature/<ten-nhom>/<tinh-nang>` hoặc `<ten-nhom>-<ten-thanh-vien>` xuất phát từ nhánh `nhom/<ten-nhom>-<ten-lop>`.
+   - Khi hoàn thành tính năng, tiến hành merge vào nhánh chính của nhóm `nhom/<ten-nhom>-<ten-lop>` trước khi gửi Pull Request về kho gốc của giảng viên.
 2. **Quy tắc giải quyết xung đột (Conflict Resolution):**
    - Không được ghi đè mã nguồn của thành viên khác mà không trao đổi nội bộ.
    - Luôn chạy kiểm thử ứng dụng sau khi giải quyết xung đột mã nguồn.
