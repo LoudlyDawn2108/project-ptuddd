@@ -62,7 +62,29 @@ Bên trong thư mục của mỗi nhóm, bắt buộc phải có tệp `danhsach
 
 ---
 
-## 3. Hướng Dẫn Tham Gia Và Thiết Lập Môi Trường Làm Việc
+## 3. Giải Pháp Kỹ Thuật: Thiết Lập Khóa Nhánh main (Branch Protection Rule)
+
+Để ngăn chặn tình trạng các nhóm sinh viên vô tình hoặc cố ý đẩy mã nguồn trực tiếp lên nhánh `main` làm thay đổi cấu trúc chung hoặc xung đột dữ liệu, kho lưu trữ đã kích hoạt quy tắc bảo vệ nhánh (**Branch Protection Rule**) trên GitHub với các cơ chế kỹ thuật sau:
+
+1. **Chặn đẩy mã nguồn trực tiếp (Block Direct Push):**
+   - Toàn bộ thao tác đẩy mã nguồn trực tiếp lên nhánh `main` đều bị hệ thống máy chủ GitHub từ chối tự động.
+   - Nếu thực thi lệnh `git push origin main`, hệ thống sẽ trả về lỗi từ chối cập nhật:
+     ```text
+     remote: error: GH006: Protected branch update failed for refs/heads/main.
+     remote: error: Changes must be made through a pull request.
+     To https://github.com/oanhcuongdo/project-ptuddd.git
+      ! [remote rejected] main -> main (protected branch hook declined)
+     ```
+2. **Bắt buộc tích hợp qua Pull Request (Require Pull Request):**
+   - Mọi đóng góp mã nguồn vào nhánh `main` bắt buộc phải thông qua cơ chế Pull Request xuất phát từ nhánh riêng của nhóm (`nhom/<ten-nhom>-<ten-lop>`).
+3. **Yêu cầu phê duyệt từ Giảng viên (Require Approval):**
+   - Pull Request chỉ có thể được hợp nhất (merge) vào `main` sau khi được Giảng viên/Quản trị viên kiểm tra và phê duyệt tối thiểu 01 lượt (approving review).
+4. **Vô hiệu hóa thao tác nguy hiểm (Block Force Push & Deletion):**
+   - Nghiêm cấm các lệnh ghi đè lịch sử commit (`git push --force`) và hành vi xóa nhánh `main`, đảm bảo tính toàn vẹn và khả năng truy vết mã nguồn.
+
+---
+
+## 4. Hướng Dẫn Tham Gia Và Thiết Lập Môi Trường Làm Việc
 
 Sinh viên có thể tham gia và đóng góp mã nguồn theo một trong hai mô hình dưới đây tùy thuộc vào cấu hình phân quyền của giảng viên:
 
@@ -103,7 +125,7 @@ Mô hình này giúp sinh viên quản lý kho mã nguồn độc lập, tránh 
 
 ---
 
-## 4. Quy Trình Commit Và Push Code Đúng Thư Mục Nhóm
+## 5. Quy Trình Commit Và Push Code Đúng Thư Mục Nhóm
 
 Để đảm bảo tính độc lập và toàn vẹn dữ liệu giữa các nhóm, sinh viên bắt buộc phải tuân thủ nghiêm ngặt các bước thao tác sau:
 
@@ -228,7 +250,7 @@ git push origin nhom/<ten-nhom>-<ten-lop>
 
 ---
 
-## 5. Phối Hợp Làm Việc Nội Bộ Trong Nhóm
+## 6. Phối Hợp Làm Việc Nội Bộ Trong Nhóm
 
 Đối với các nhóm có nhiều thành viên cùng phát triển đồng thời:
 
@@ -241,7 +263,7 @@ git push origin nhom/<ten-nhom>-<ten-lop>
 
 ---
 
-## 6. Các Lưu Ý Kỹ Thuật Quan Trọng
+## 7. Các Lưu Ý Kỹ Thuật Quan Trọng
 
 1. **Phạm vi tác động:** Tuyệt đối không chỉnh sửa, di chuyển hoặc xóa tệp tin, thư mục của các nhóm khác hoặc các tệp cấu hình dùng chung ở thư mục gốc (`README.md`, `.gitignore`).
 2. **Loại trừ tệp rác (.gitignore):** Không đẩy lên repository các thư mục phụ thuộc và tệp tạm thời như:
@@ -250,4 +272,5 @@ git push origin nhom/<ten-nhom>-<ten-lop>
    - Tệp môi trường chứa khóa bảo mật: `.env`, `.env.local`, `keystore`, `*.jks`
    - Tệp cấu hình IDE cục bộ: `.idea/`, `.vscode/`, `*.suo`, `*.user`
 3. **Dung lượng tệp:** Không đẩy các tệp tin có dung lượng vượt quá giới hạn của GitHub (khuyến nghị dưới 50MB/tệp).
+
 
