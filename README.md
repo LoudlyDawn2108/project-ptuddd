@@ -59,7 +59,7 @@ Sinh viên thực hiện việc nộp bài theo các bước kỹ thuật sau:
 ### Bước 1: Sao chép repository về máy cục bộ (Clone)
 
 ```bash
-git clone <URL_REPOSITORY>
+git clone https://github.com/oanhcuongdo/project-ptuddd.git
 cd project-ptuddd
 ```
 
