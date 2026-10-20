@@ -1,0 +1,42 @@
+# Build output & dependency directories
+node_modules/
+dist/
+build/
+bin/
+obj/
+out/
+
+# Android
+.gradle/
+build/
+app/build/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# iOS
+Pods/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+
+# Environment and sensitive keys
+.env
+.env.*
+!.env.example
+
+# IDE & Editor configs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
