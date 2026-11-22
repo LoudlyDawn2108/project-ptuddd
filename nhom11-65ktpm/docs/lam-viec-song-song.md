@@ -31,7 +31,7 @@ git checkout -b feat/<tên>/<việc>
 # Server (một lần, hoặc sau khi có migration mới):
 cd nhom11-65ktpm/src/server
 alembic upgrade head
-python -m scripts.seed_dev --reset     # 3 bài mẫu + tài khoản demo có 30 ngày học
+python -m scripts.seed_dev --reset     # bài từ data/lessons + tài khoản demo có 30 ngày học
 uvicorn app.main:app --reload
 
 # App:
