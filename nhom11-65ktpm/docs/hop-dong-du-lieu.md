@@ -54,10 +54,12 @@ Giữ lại bản giả: test của người khác và chế độ `FAKE_DATA=tr
 
 ## 2. Bài học và từ vựng (JSON)
 
-**Nguồn duy nhất:** `nhom11-65ktpm/data/lessons/<cấp>/lesson-XX.json` (các cấp HSK1 và HSK2).
+**Phạm vi phân loại:** Bộ gồm 298 từ vựng sơ cấp được tổ chức theo chủ đề trong 30 bài. `HSK1` và `HSK2` là tên hai nhóm khóa học nội bộ của ứng dụng, không phải tuyên bố rằng dữ liệu đã được đối chiếu với danh sách từ vựng HSK 2.0 hoặc HSK 3.0 chính thức. Vì vậy, không dùng các nhóm này để khẳng định cấp HSK chính thức của từng từ.
+
+**Nguồn duy nhất:** `nhom11-65ktpm/data/lessons/<cấp>/lesson-XX.json` (các nhóm khóa học nội bộ `HSK1` và `HSK2`).
 - Server nạp bằng `scripts/seed_dev.py` (dev). Script nạp chính thức là việc của Hoa ở #18.
 - App đọc bản sao trong `src/app/assets/dev/lessons/`. Sau khi sửa `data/` chạy `bash scripts/sync_dev_data.sh`; test `contracts_test.dart` sẽ báo lỗi nếu hai nơi lệch nhau.
-- File tổng `data/hsk1_2_vocabulary.json` là bản xuất sinh từ các bài nguồn bằng `python scripts/export_hsk_vocabulary.py`; không sửa tay file tổng.
+- File tổng `data/hsk1_2_vocabulary.json` là bản xuất sinh từ các bài nguồn bằng `python scripts/export_hsk_vocabulary.py`; tên file phản ánh các nhóm khóa học nội bộ, không phải danh sách HSK chính thức. Không sửa tay file tổng.
 
 ```json
 {

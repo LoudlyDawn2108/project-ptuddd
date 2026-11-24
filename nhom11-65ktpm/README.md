@@ -146,7 +146,7 @@ Chi tiết mã công việc và phân chia 31 Issues được quản lý tại t
 | :---: | :--- | :---: | :---: | :---: | :--- |
 | 1 | **Nguyễn Hồng Phúc** | 2351170611 | `@LoudlyDawn2108` | **Trưởng nhóm** | Thiết kế kiến trúc Flutter, FastAPI Core, Auth JWT, Docker, Module Claude AI & UI Chat |
 | 2 | **Lê Tuấn Khanh** | 2351170601 | `@khanhx419` | Thành viên | Thu âm WAV, STT zh-CN, TTS, Engine chấm phát âm Offline, API Azure Speech Online & UI chấm âm |
-| 3 | **Đinh Thị Hoa** | 2351170593 | `@dinhhoa65ktpm` | Thành viên | Bộ dữ liệu từ vựng HSK 1-2 (~300 từ), Script nạp CSDL, UI Bài học, Module Flashcard SM-2 & Mẹo phát âm |
+| 3 | **Đinh Thị Hoa** | 2351170593 | `@dinhhoa65ktpm` | Thành viên | Bộ dữ liệu 298 từ vựng sơ cấp theo chủ đề, Script nạp CSDL, UI Bài học, Module Flashcard SM-2 & Mẹo phát âm |
 | 4 | **Chu Hữu Đệ** | 2251172273 | `@chuhuude` | Thành viên | CSDL SQLite, luồng Auth/Profile, Sync Offline-First, Canvas Luyện viết Hán tự & Kiểm tra nét vẽ |
 | 5 | **Phạm Vũ Ngọc Bảo** | 2251172249 | `@ngxcbao` | Thành viên | Bản đồ Lộ trình học, Placement Test, Dashboard Trang chủ, Bài kiểm tra HSK, Thống kê fl_chart, Huy hiệu & E2E Test |
 

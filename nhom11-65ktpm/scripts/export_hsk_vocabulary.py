@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the combined HSK1/HSK2 vocabulary export from lesson JSON files."""
+"""Build the beginner thematic vocabulary export from lesson JSON files."""
 
 import json
 from pathlib import Path

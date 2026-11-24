@@ -64,7 +64,7 @@ Xây dựng hệ thống ChaiLish gồm ứng dụng di động hỗ trợ ngư�
 
 - Xây dựng lộ trình học có sẵn từ người mới bắt đầu đến HSK 2, chia thành các chặng và bài học, mở khóa lần lượt theo kết quả học.
 
-- Xây dựng bộ từ vựng HSK 1-2 (khoảng 300 từ) kèm Hán tự, pinyin, nghĩa tiếng Việt, âm Hán Việt và câu ví dụ.
+- Xây dựng bộ từ vựng sơ cấp theo chủ đề (khoảng 300 từ) kèm Hán tự, pinyin, nghĩa tiếng Việt, âm Hán Việt và câu ví dụ. Dữ liệu được chia vào hai nhóm khóa học nội bộ HSK1/HSK2, không khẳng định theo danh sách HSK chính thức.
 
 - Cho phép người dùng đăng ký, đăng nhập, đăng xuất, quên mật khẩu; tài khoản được quản lý trên server.
 
@@ -338,7 +338,7 @@ Trên server sử dụng:
 
 - Make Me a Hanzi: bộ dữ liệu mở về thứ tự nét và đường nét của chữ Hán, dùng cho hoạt ảnh và kiểm tra nét viết.
 
-- Danh sách từ vựng HSK: nhóm tự soạn nghĩa tiếng Việt và âm Hán Việt cho từng từ.
+- Danh sách từ vựng sơ cấp theo chủ đề: nhóm tự soạn nghĩa tiếng Việt và âm Hán Việt cho từng từ.
 
 - Nhận dạng giọng nói Android (zh-CN), Text-to-Speech tiếng Trung trên ứng dụng.
 
@@ -603,7 +603,7 @@ Bảng tổng hợp phân công:
 <td style="text-align: left;">Đinh Thị Hoa</td>
 <td style="text-align: left;">Màn hình danh sách bài học, chi tiết bài học, chi tiết từ vựng, flashcard và thuật toán ôn tập SM-2, huy hiệu; soạn mẹo phát âm và bộ dữ liệu kiểm thử engine</td>
 <td style="text-align: left;">Định dạng file dữ liệu bài học và script nạp nội dung vào server</td>
-<td style="text-align: left;">Code màn hình bài học, flashcard ôn tập và huy hiệu; soạn dữ liệu HSK 1-2 và mẹo phát âm</td>
+<td style="text-align: left;">Code màn hình bài học, flashcard ôn tập và huy hiệu; soạn dữ liệu từ vựng sơ cấp theo chủ đề và mẹo phát âm</td>
 </tr>
 <tr>
 <td style="text-align: left;">Chu Hữu Đệ</td>
@@ -676,7 +676,7 @@ Bảng tổng hợp phân công:
 
 - Server: thống nhất định dạng file dữ liệu bài học, lộ trình, từ vựng và viết script kiểm tra, nạp nội dung vào server, tăng số phiên bản khi cập nhật.
 
-- Dữ liệu: soạn bộ từ HSK 1-2 (nghĩa tiếng Việt, âm Hán Việt, câu ví dụ).
+- Dữ liệu: soạn bộ từ vựng sơ cấp theo chủ đề (nghĩa tiếng Việt, âm Hán Việt, câu ví dụ).
 
 - Dữ liệu: soạn mẹo phát âm và lỗi người Việt hay gặp cho từng phụ âm đầu, vần, thanh điệu (khẩu hình, cách đặt lưỡi, ví dụ so sánh với âm tiếng Việt), lưu dạng file dữ liệu để màn hình phản hồi của Khanh hiển thị.
 
@@ -730,7 +730,7 @@ Sau khi hoàn thành, nhóm mong muốn đạt được các kết quả sau:
 
 - Ứng dụng Android học tiếng Trung chạy ổn định, giao diện tiếng Việt.
 
-- Có bộ từ vựng HSK 1-2 khoảng 300 từ, đầy đủ pinyin, nghĩa và âm Hán Việt.
+- Có bộ từ vựng sơ cấp theo chủ đề khoảng 300 từ, đầy đủ pinyin, nghĩa và âm Hán Việt.
 
 - Người dùng đăng ký, đăng nhập và đồng bộ dữ liệu được giữa nhiều thiết bị.
 
