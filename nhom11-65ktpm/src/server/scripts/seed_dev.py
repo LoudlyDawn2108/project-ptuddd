@@ -72,14 +72,27 @@ def _lesson_specs() -> list[dict]:
 
 def seed_content(db: Session) -> list[Lesson]:
     lessons: list[Lesson] = []
-    for spec in _lesson_specs():
+    specs = _lesson_specs()
+    topics_by_level: dict[str, list[str]] = {}
+    for spec in specs:
+        topic = spec["topic"]
+        if topic:
+            topics = topics_by_level.setdefault(spec["level"], [])
+            if topic not in topics:
+                topics.append(topic)
+
+    for spec in specs:
         level = spec["level"]
+        topics = topics_by_level.get(level)
+        if not topics:
+            raise ValueError(f"No lesson topics found for course level {level!r}")
+
         course = db.scalar(select(Course).where(Course.code == level))
         if course is None:
             course = Course(code=level)
             db.add(course)
         course.title = {"HSK1": "HSK 1", "HSK2": "HSK 2", "PINYIN": "Pinyin"}.get(level, level)
-        course.description = f"Giáo trình {course.title} và các mẫu câu cơ bản."
+        course.description = f"Từ vựng sơ cấp theo chủ đề: {', '.join(topics)}."
         course.order_index = {"PINYIN": 0, "HSK1": 1, "HSK2": 2}.get(level, 3)
         db.flush()
 

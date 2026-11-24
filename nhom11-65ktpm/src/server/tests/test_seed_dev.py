@@ -45,6 +45,19 @@ def test_seed_keeps_hsk2_level_and_out_of_hsk1_path(db_session):
     assert all(lesson.course.code == "HSK1" for lesson in path_lessons)
 
 
+def test_seed_course_descriptions_reflect_each_groups_topics(db_session):
+    lessons = seed_content(db_session)
+    descriptions = {}
+    for level in ("HSK1", "HSK2"):
+        level_lessons = [lesson for lesson in lessons if lesson.course.code == level]
+        description = level_lessons[0].course.description
+        assert description.startswith("Từ vựng sơ cấp theo chủ đề:")
+        assert all(lesson.topic in description for lesson in level_lessons if lesson.topic)
+        descriptions[level] = description
+
+    assert descriptions["HSK1"] != descriptions["HSK2"]
+
+
 def test_seed_generates_30_days_of_events_once(db_session):
     _seed(db_session)
     count = db_session.scalar(select(func.count()).select_from(LearningEvent))
