@@ -6,6 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../network/api_client.dart';
 import 'fake_implementation.dart';
 import 'models/learning_event.dart';
+import '../config/app_config.dart';
+import '../storage/database_helper.dart';
+import '../storage/sqlite_outbox.dart';
 
 /// Một thay đổi cần gửi lên server.
 ///
@@ -20,9 +23,14 @@ class OutboxItem {
   final DateTime createdAt;
   int attempts;
 
-  OutboxItem({required this.kind, required this.payload, String? id, DateTime? createdAt, this.attempts = 0})
-    : id = id ?? newUuid(),
-      createdAt = createdAt ?? DateTime.now();
+  OutboxItem({
+    required this.kind,
+    required this.payload,
+    String? id,
+    DateTime? createdAt,
+    this.attempts = 0,
+  }) : id = id ?? newUuid(),
+       createdAt = createdAt ?? DateTime.now();
 }
 
 /// Hàng đợi đồng bộ offline-first. Chủ sở hữu: **Đệ** (#23 SQLite, #25 sync).
@@ -42,9 +50,23 @@ abstract class Outbox {
 }
 
 final outboxProvider = Provider<Outbox>((ref) {
-  final o = MemoryOutbox(ref.watch(apiClientProvider));
-  ref.onDispose(o.dispose);
-  return o;
+  final api = ref.watch(apiClientProvider);
+
+  // Nếu bật FAKE_DATA thì sử dụng Outbox giả.
+  if (AppConfig.fakeData) {
+    final outbox = MemoryOutbox(api);
+
+    ref.onDispose(outbox.dispose);
+
+    return outbox;
+  }
+
+  // Mặc định sử dụng SQLiteOutbox thật.
+  final outbox = SQLiteOutbox(ref.watch(databaseProvider), api);
+
+  ref.onDispose(outbox.dispose);
+
+  return outbox;
 });
 
 /// Bản giả: giữ hàng đợi trong RAM (mất khi tắt app), gửi ngay khi enqueue.
@@ -71,7 +93,8 @@ class MemoryOutbox with FakeImplementation implements Outbox {
   }
 
   @override
-  Future<void> flush() => _running ??= _flush().whenComplete(() => _running = null);
+  Future<void> flush() =>
+      _running ??= _flush().whenComplete(() => _running = null);
 
   Future<void> _flush() async {
     final events = _items.where((i) => i.kind == 'event').toList();
@@ -81,7 +104,12 @@ class MemoryOutbox with FakeImplementation implements Outbox {
     try {
       for (var i = 0; i < events.length; i += 200) {
         final batch = events.skip(i).take(200).toList();
-        await _api.post('/events', body: {'events': [for (final e in batch) e.payload]});
+        await _api.post(
+          '/events',
+          body: {
+            'events': [for (final e in batch) e.payload],
+          },
+        );
         _items.removeWhere(batch.contains);
         _changes.add(_items.length);
       }
@@ -89,7 +117,9 @@ class MemoryOutbox with FakeImplementation implements Outbox {
       for (final item in events) {
         item.attempts++;
       }
-      debugPrint('Outbox: chưa gửi được ${events.length} sự kiện, sẽ thử lại ($e)');
+      debugPrint(
+        'Outbox: chưa gửi được ${events.length} sự kiện, sẽ thử lại ($e)',
+      );
     }
   }
 
