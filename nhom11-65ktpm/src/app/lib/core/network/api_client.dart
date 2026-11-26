@@ -107,6 +107,50 @@ class ApiClient {
     }
   }
 
+  Future<dynamic> postMultipart(
+    String endpoint, {
+    Map<String, String>? fields,
+    required String fileField,
+    required String filePath,
+    bool requireAuth = true,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl$endpoint');
+      final request = http.MultipartRequest('POST', uri);
+      final headers = await _buildHeaders(includeAuth: requireAuth);
+      headers.remove('Content-Type');
+      request.headers.addAll(headers);
+      if (fields != null) {
+        request.fields.addAll(fields);
+      }
+      request.files.add(await http.MultipartFile.fromPath(fileField, filePath));
+
+      final streamed = await _client.send(request).timeout(const Duration(seconds: 15));
+      final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 401 && requireAuth) {
+        final refreshed = await _refreshToken();
+        if (refreshed) {
+          final retryReq = http.MultipartRequest('POST', uri);
+          final newHeaders = await _buildHeaders(includeAuth: true);
+          newHeaders.remove('Content-Type');
+          retryReq.headers.addAll(newHeaders);
+          if (fields != null) {
+            retryReq.fields.addAll(fields);
+          }
+          retryReq.files.add(await http.MultipartFile.fromPath(fileField, filePath));
+          final retryStreamed = await _client.send(retryReq).timeout(const Duration(seconds: 15));
+          final retryResp = await http.Response.fromStream(retryStreamed);
+          return _handleResponse(retryResp);
+        }
+      }
+
+      return _handleResponse(response);
+    } on SocketException {
+      throw NetworkException('Không thể kết nối đến máy chủ. Vui lòng kiểm tra Internet.');
+    }
+  }
+
   /// Gửi POST và nhận phản hồi dạng Server-Sent Events (vd. trợ lý AI trả lời từng đoạn).
   ///
   /// Tự gắn Bearer token, tự refresh token khi gặp 401 rồi gửi lại một lần.

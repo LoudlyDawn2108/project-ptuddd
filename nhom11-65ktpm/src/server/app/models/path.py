@@ -13,7 +13,7 @@ DEFAULT_UNLOCK_SCORE = 70
 
 
 class PathStage(TimestampMixin, Base):
-    __tablename__ = "path_stages"
+    __tablename__ = "path_stages"  
 
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(64), unique=True)

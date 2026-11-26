@@ -14,13 +14,14 @@ Cả nhóm cùng code một app. Nếu chia việc theo tầng (người làm d�
 | Đệ | Viết chữ Hán, tài khoản, lưu trữ offline + đồng bộ, thông báo + bảng xếp hạng | #23–#28 |
 | Bảo | Lộ trình, kiểm tra đầu vào, kiểm tra cuối chặng, trang chủ, thống kê, huy hiệu, kiểm thử E2E | #21 #29–#34 |
 
-## 2. Năm quy tắc
+## 2. Sáu quy tắc
 
 1. **Chỉ phụ thuộc vào hợp đồng.** Cần dữ liệu của người khác thì dùng provider trong `core/contracts/`. Không import file trong `features/<tính năng của người khác>/`.
 2. **Bản giả trước, bản thật sau.** Mỗi hợp đồng có sẵn bản giả chạy được. Làm màn hình trên bản giả, làm xong bản thật thì chỉ đổi provider của mình.
 3. **Mỗi PR chạy được trên app.** Không merge thứ làm hỏng bản giả mà người khác đang dùng. `flutter analyze`, `flutter test`, `pytest` phải xanh (`bash scripts/ci.sh`).
 4. **Ghi sự kiện, đừng gọi chéo.** Học xong một thứ thì `progressService.record(...)`. Trang chủ, thống kê, huy hiệu, bảng xếp hạng đọc sự kiện, không gọi vào module của bạn.
 5. **Đổi hợp đồng phải báo nhóm.** Sửa tài liệu, model, bản giả và test trong cùng một PR, tag những người đang dùng hợp đồng đó.
+6. **Không có ảnh QA thì không merge.** PR phải kèm ảnh / video app thật đang chạy tính năng, chụp từ commit cuối (xem mục 8). Test xanh chưa đủ: code biên dịch được vẫn có thể là code chết.
 
 ## 3. Bắt đầu làm một issue
 
@@ -76,3 +77,32 @@ await tester.pumpWidget(ProviderScope(
 
 - Bản giả thiếu thứ bạn cần (vd. cần thêm một hàm trong interface): mở PR nhỏ sửa hợp đồng trước (interface + bản giả + tài liệu), tag chủ sở hữu, merge rồi mới làm tiếp.
 - Bản thật của người khác có lỗi: tạm chạy với `--dart-define=FAKE_DATA=true`, báo trên issue của họ.
+
+## 8. Mở PR: bằng chứng QA
+
+Mỗi PR vào `nhom/nhom11-65ktpm` phải chứng minh tính năng **thật sự chạy trên app**, để người review đối chiếu được, không chỉ đọc code.
+
+**Mở PR bằng mẫu** [mau-pull-request.md](mau-pull-request.md):
+
+```bash
+gh pr create -B nhom/nhom11-65ktpm --body-file nhom11-65ktpm/docs/mau-pull-request.md
+# rồi mở PR trên GitHub, bấm Edit, điền và kéo thả ảnh vào mục "Bằng chứng QA"
+```
+
+**Ảnh hợp lệ:**
+- Chụp **app thật đang chạy** (máy thật, máy ảo hoặc web). Không dùng ảnh thiết kế, ảnh Figma, ảnh golden test.
+- Chụp từ **commit cuối** của PR và ghi mã commit. Push thêm thay đổi luồng hoặc giao diện thì chụp lại.
+- Đủ **từng bước của luồng chính**: mở màn hình → thao tác → kết quả. Luồng nhiều bước, có ghi âm hoặc hoạt ảnh thì quay video ngắn / GIF.
+- Ít nhất **một trường hợp lỗi hoặc trống** (mất mạng, từ chối quyền mic, danh sách rỗng...).
+- Làm **bản thật** của hợp đồng: thêm ảnh menu dev cho thấy hợp đồng chuyển sang **THẬT**, và ảnh kết quả đến từ bản thật (vd. điểm phát âm thay đổi theo giọng đọc, không phải số cố định).
+- PR **chỉ server**: ảnh Swagger `/docs` hoặc output `curl` gọi endpoint thật, có cả request và response.
+- Dán ảnh trực tiếp vào mô tả PR. **Không commit ảnh** vào repo.
+
+**Được miễn:** PR chỉ sửa tài liệu, chỉ thêm test, chỉ sửa CI / script. Ghi rõ `Không cần QA: <lý do>`.
+
+**Người review:**
+- Mở từng ảnh, đối chiếu với code: đúng màn hình, đúng luồng, đúng commit.
+- Nghi ngờ thì checkout nhánh về chạy thử (`gh pr checkout <số>`).
+- **Không Approve** khi thiếu ảnh hoặc ảnh không khớp; chọn *Request changes* và ghi thiếu gì.
+
+**Trưởng nhóm:** không merge (kể cả merge bằng quyền admin) PR thiếu bằng chứng QA hợp lệ.

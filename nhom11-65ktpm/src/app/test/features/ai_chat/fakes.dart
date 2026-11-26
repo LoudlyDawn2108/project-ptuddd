@@ -106,6 +106,9 @@ class FakeTts implements ChatTts {
   final spoken = <(String, bool)>[];
 
   @override
+  Future<void> initialize() async {}
+
+  @override
   Future<void> speak(String text, {bool slow = false}) async => spoken.add((text, slow));
 
   @override
@@ -119,7 +122,11 @@ class FakeSpeechInput implements ChatSpeechInput {
   Future<bool> initialize() async => true;
 
   @override
-  Future<void> listen({required void Function(String text, bool isFinal) onResult}) async {
+  Future<void> listen({
+    required void Function(String text, bool isFinal) onResult,
+    void Function(double level)? onSoundLevel,
+    void Function(String error)? onError,
+  }) async {
     _onResult = onResult;
   }
 

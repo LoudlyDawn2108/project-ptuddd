@@ -18,6 +18,7 @@ import 'progress_service.dart';
 import 'pronunciation_scorer.dart';
 import 'speech_services.dart';
 import 'srs_service.dart';
+import 'path_repository.dart'; 
 
 export '../config/app_config.dart';
 export 'auth_repository.dart';
@@ -28,9 +29,11 @@ export 'lesson_repository.dart';
 export 'models/hanzi.dart';
 export 'models/learning_event.dart';
 export 'models/lesson.dart';
+export 'models/path.dart';    
 export 'models/pronunciation.dart';
 export 'models/user_profile.dart';
 export 'outbox.dart';
+export 'path_repository.dart'; 
 export 'progress_service.dart';
 export 'pronunciation_scorer.dart';
 export 'speech_services.dart';
@@ -58,4 +61,5 @@ final contractEntries = <ContractEntry>[
   ContractEntry('Hàng đợi đồng bộ (Outbox)', 'Đệ', '#23 #25', outboxProvider),
   ContractEntry('Sự kiện học tập (ProgressService)', 'Phúc', 'khung', progressServiceProvider),
   ContractEntry('Đăng nhập (AuthRepository)', 'Phúc / Đệ', '#6 #24', authRepositoryProvider),
+  ContractEntry('Lộ trình học (PathRepository)', 'Bảo', '#29', pathRepositoryProvider),
 ];

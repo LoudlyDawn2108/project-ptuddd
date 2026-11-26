@@ -131,6 +131,9 @@ def _recompute_streak(db: Session, user: User) -> Streak:
 def record_events(db: Session, user: User, events: list[NewEvent]) -> RecordResult:
     """Lưu các sự kiện mới (bỏ qua id đã có) rồi cập nhật thống kê ngày, streak và XP.
 
+    Các sự kiện mới cũng được chuyển cho Lộ trình học (`apply_events_to_path`) để
+    cập nhật `user_path_progress`.
+
     Không commit: người gọi tự `db.commit()`.
     """
     now = datetime.now(UTC)
@@ -141,6 +144,7 @@ def record_events(db: Session, user: User, events: list[NewEvent]) -> RecordResu
     accepted = 0
     xp_added = 0
     seen: set[uuid.UUID] = set()
+    new_events: list[NewEvent] = []  # chỉ các sự kiện thật sự được ghi (không tính bản trùng)
     for e in events:
         if e.id in existing or e.id in seen:
             continue
@@ -156,6 +160,7 @@ def record_events(db: Session, user: User, events: list[NewEvent]) -> RecordResu
         touched.add(local_date(user, occurred))
         accepted += 1
         xp_added += xp
+        new_events.append(e)
 
     if accepted:
         db.flush()
@@ -163,6 +168,8 @@ def record_events(db: Session, user: User, events: list[NewEvent]) -> RecordResu
             _recompute_day(db, user, day)
         db.flush()
         user.xp_total = (user.xp_total or 0) + xp_added
+        from app.services.path import apply_events_to_path
+        apply_events_to_path(db, user, new_events)
     streak = _recompute_streak(db, user) if accepted else db.get(Streak, user.id)
     db.flush()
     return RecordResult(

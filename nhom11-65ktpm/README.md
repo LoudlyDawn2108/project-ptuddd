@@ -320,9 +320,10 @@ pytest -v
    git push origin <tên-nhánh-tính-năng>
    ```
 5. **Mở Pull Request & Phản hồi chéo:**
-   - Mở PR trên GitHub gán reviewer theo bảng ma trận phân công.
+   - Mở PR bằng mẫu `docs/mau-pull-request.md` (`gh pr create --body-file nhom11-65ktpm/docs/mau-pull-request.md`), gán reviewer theo bảng ma trận phân công.
+   - **Bắt buộc kèm ảnh / video QA** app thật đang chạy tính năng, chụp từ commit cuối của PR. Quy định chi tiết: [docs/lam-viec-song-song.md](docs/lam-viec-song-song.md) mục 8.
    - Thảo luận, comment mã nguồn trực tiếp trên PR.
-   - Khi có ít nhất 1 phê duyệt (Approve), trưởng nhóm thực hiện Merge vào nhánh `nhom/nhom11-65ktpm`.
+   - Khi có ảnh QA hợp lệ **và** ít nhất 1 phê duyệt (Approve), trưởng nhóm thực hiện Merge vào nhánh `nhom/nhom11-65ktpm`. Thiếu ảnh QA thì không merge.
 
 ---
 

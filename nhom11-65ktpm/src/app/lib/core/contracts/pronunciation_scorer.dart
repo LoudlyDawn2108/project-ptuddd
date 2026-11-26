@@ -14,6 +14,8 @@ abstract class PronunciationScorer {
     required String referenceHanzi,
     required String referencePinyin,
     Recording? recording,
+    String? recognizedPinyin,
+    String? recognizedText,
   });
 }
 
@@ -40,6 +42,8 @@ class FakePronunciationScorer with FakeImplementation implements PronunciationSc
     required String referenceHanzi,
     required String referencePinyin,
     Recording? recording,
+    String? recognizedPinyin,
+    String? recognizedText,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 600)); // giả độ trễ chấm
     final chars = referenceHanzi.runes.map(String.fromCharCode).where((c) => RegExp(r'[一-鿿]').hasMatch(c)).toList();
@@ -90,32 +94,47 @@ class FakePronunciationScorer with FakeImplementation implements PronunciationSc
 }
 
 const _initials = ['zh', 'ch', 'sh', 'b', 'p', 'm', 'f', 'd', 't', 'n', 'l', 'g', 'k', 'h', 'j', 'q', 'x', 'r', 'z', 'c', 's', 'y', 'w'];
-const _toneMarks = {
+const _toneMap = {
   'āēīōūǖ': 1,
   'áéíóúǘ': 2,
   'ǎěǐǒǔǚ': 3,
   'àèìòùǜ': 4,
 };
-const _plain = 'aeiouü';
+const _plainMap = {
+  'āáǎà': 'a', 'ēéěè': 'e', 'īíǐì': 'i', 'ōóǒò': 'o', 'ūúǔù': 'u', 'ǖǘǚǜ': 'ü',
+};
 
-/// Tách một âm tiết pinyin có dấu: "hǎo" → (h, ao, 3). Bản thật ở #13 nên dùng
-/// lại hàm này hoặc thay bằng bản đầy đủ hơn (xử lý ü, y/w, thanh nhẹ...).
+/// Tách một âm tiết pinyin có dấu hoặc số: "hǎo" → (h, ao, 3), "ni2" → (n, i, 2).
 SyllableParts splitPinyin(String syllable) {
-  var s = syllable.toLowerCase().replaceAll(RegExp(r'[^a-züĀ-ǿà-ü]'), '');
+  var s = syllable.trim().toLowerCase();
   var tone = 5;
+
+  final numMatch = RegExp(r'([1-5])$').firstMatch(s);
+  if (numMatch != null) {
+    tone = int.parse(numMatch.group(1)!);
+    s = s.substring(0, s.length - 1);
+  }
+
   final buf = StringBuffer();
   for (final ch in s.split('')) {
     var replaced = ch;
-    _toneMarks.forEach((marks, t) {
-      final idx = marks.indexOf(ch);
-      if (idx >= 0) {
-        tone = t;
-        replaced = _plain[idx];
+    if (tone == 5) {
+      _toneMap.forEach((marks, t) {
+        if (marks.contains(ch)) {
+          tone = t;
+        }
+      });
+    }
+    _plainMap.forEach((marks, p) {
+      if (marks.contains(ch)) {
+        replaced = p;
       }
     });
     buf.write(replaced);
   }
-  s = buf.toString();
+
+  s = buf.toString().replaceAll(RegExp(r'[^a-zü]'), '');
+
   for (final i in _initials) {
     if (s.startsWith(i) && s.length > i.length) {
       return SyllableParts(initial: i, finalPart: s.substring(i.length), tone: tone);
