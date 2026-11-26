@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
@@ -15,6 +16,9 @@ import 'models/pronunciation.dart';
 /// Đọc mẫu tiếng Trung. Dùng ở: Phát âm (#15), Từ vựng (#19), Flashcard (#20),
 /// Kiểm tra nghe (#32), Trợ lý AI (#9).
 abstract class TtsService {
+  /// Khởi động ngầm dịch vụ TTS (warm-up) để khi người dùng bấm là phát âm tức thì
+  Future<void> initialize() async {}
+
   /// [slow] = tốc độ chậm (0.7x) để người học nghe rõ thanh điệu.
   Future<void> speak(String text, {bool slow = false});
   Future<void> stop();
@@ -31,20 +35,85 @@ final ttsServiceProvider = Provider<TtsService>((ref) {
 class FlutterTtsService implements TtsService {
   final FlutterTts _tts = FlutterTts();
   bool _configured = false;
+  bool _isPlaying = false;
 
   @override
-  Future<void> speak(String text, {bool slow = false}) async {
-    if (!_configured) {
+  Future<void> initialize() async {
+    await _ensureConfigured();
+    await _performSilentWarmup();
+  }
+
+  Future<void> _ensureConfigured() async {
+    if (_configured) return;
+    try {
+      _tts.setStartHandler(() {
+        _isPlaying = true;
+      });
+      _tts.setCompletionHandler(() {
+        _isPlaying = false;
+      });
+      _tts.setCancelHandler(() {
+        _isPlaying = false;
+      });
+      _tts.setErrorHandler((_) {
+        _isPlaying = false;
+      });
+
       await _tts.setLanguage('zh-CN');
+      await _tts.setVolume(1.0);
+      await _tts.setPitch(1.0);
+      await _tts.setSpeechRate(0.5);
       _configured = true;
-    }
-    await _tts.stop();
-    await _tts.setSpeechRate(slow ? 0.3 : 0.5);
-    await _tts.speak(text);
+    } catch (_) {}
+  }
+
+  Future<void> _performSilentWarmup() async {
+    try {
+      // ── Silent warm-up: ép cold-start AudioTrack DAC ở volume 0 ──
+      // Chỉ chạy khi màn hình gọi initialize() chủ động, không chạy trong speak()
+      // để máy thật hoặc các màn khác không bị trễ.
+      await _tts.setVolume(0.0);
+      await _tts.speak(' ');
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+      await _tts.setVolume(1.0);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      _isPlaying = false;
+    } catch (_) {}
   }
 
   @override
-  Future<void> stop() => _tts.stop();
+  Future<void> speak(String text, {bool slow = false}) async {
+    await _ensureConfigured();
+    try {
+      if (_isPlaying) {
+        await _tts.stop();
+        // Nghỉ 60ms để giải phóng AudioTrack cũ, triệt tiêu tiếng bụp/rè khi đổi từ
+        await Future<void>.delayed(const Duration(milliseconds: 60));
+      }
+      await _tts.setVolume(1.0);
+      await _tts.setPitch(1.0);
+      await _tts.setSpeechRate(slow ? 0.35 : 0.5);
+
+      final clean = text.replaceAll('……', '').trim();
+      if (clean.isNotEmpty) {
+        _isPlaying = true;
+        await _tts.speak(clean);
+      }
+    } catch (e) {
+      debugPrint('TTS speak error: $e');
+      _isPlaying = false;
+    }
+  }
+
+  @override
+  Future<void> stop() async {
+    try {
+      if (_isPlaying) {
+        await _tts.stop();
+        _isPlaying = false;
+      }
+    } catch (_) {}
+  }
 }
 
 // ─────────────────────────────── Nhận dạng giọng nói · Chủ sở hữu: Khánh (#11)
@@ -53,7 +122,11 @@ class FlutterTtsService implements TtsService {
 abstract class SpeechRecognizer {
   Future<bool> initialize();
 
-  Future<void> listen({required void Function(String text, bool isFinal) onResult});
+  Future<void> listen({
+    required void Function(String text, bool isFinal) onResult,
+    void Function(double level)? onSoundLevel,
+    void Function(String error)? onError,
+  });
 
   Future<void> stop();
 }
@@ -67,25 +140,82 @@ final speechRecognizerProvider = Provider<SpeechRecognizer>((ref) {
 class SpeechToTextRecognizer implements SpeechRecognizer {
   final SpeechToText _speech = SpeechToText();
   bool _ready = false;
+  String _cachedLocale = 'zh-CN';
+  void Function(String error)? _currentOnError;
 
   @override
   Future<bool> initialize() async {
     if (_ready) return true;
-    _ready = await _speech.initialize();
+    try {
+      _ready = await _speech.initialize(
+        onError: (e) {
+          debugPrint('STT error: ${e.errorMsg} permanent: ${e.permanent}');
+          _currentOnError?.call(e.errorMsg);
+        },
+        onStatus: (s) => debugPrint('STT status: $s'),
+      );
+      if (_ready) {
+        _cachedLocale = 'zh-CN';
+        // Truy vấn danh sách locale bất đồng bộ ở background, không chờ chặn main thread
+        // giúp triệt tiêu độ trễ 2-3s và buffer underrun gây nổ rè trên máy ảo
+        _speech.locales().then((locales) {
+          final zhLocale = locales.firstWhere(
+            (l) => l.localeId.toLowerCase().startsWith('zh') || l.localeId.toLowerCase().startsWith('cmn'),
+            orElse: () => locales.isNotEmpty ? locales.first : LocaleName('zh-CN', 'Chinese'),
+          );
+          _cachedLocale = zhLocale.localeId;
+        }).catchError((_) {});
+      }
+    } catch (e) {
+      debugPrint('STT initialize exception: $e');
+      _ready = false;
+    }
     return _ready;
   }
 
   @override
-  Future<void> listen({required void Function(String text, bool isFinal) onResult}) async {
-    if (!await initialize()) return;
-    await _speech.listen(
-      onResult: (SpeechRecognitionResult result) => onResult(result.recognizedWords, result.finalResult),
-      listenOptions: SpeechListenOptions(localeId: 'zh_CN', partialResults: true, cancelOnError: true),
-    );
+  Future<void> listen({
+    required void Function(String text, bool isFinal) onResult,
+    void Function(double level)? onSoundLevel,
+    void Function(String error)? onError,
+  }) async {
+    _currentOnError = onError;
+    if (!await initialize()) {
+      onError?.call('Không thể khởi tạo bộ nhận dạng giọng nói');
+      return;
+    }
+
+    try {
+      await _speech.listen(
+        onResult: (SpeechRecognitionResult result) => onResult(result.recognizedWords, result.finalResult),
+        onSoundLevelChange: onSoundLevel != null
+            ? (level) {
+                final normalized = level <= 0 ? 0.08 : (level / 10.0).clamp(0.08, 1.0);
+                onSoundLevel(normalized);
+              }
+            : null,
+        listenOptions: SpeechListenOptions(
+          localeId: _cachedLocale,
+          partialResults: true,
+          cancelOnError: false,
+          listenMode: ListenMode.dictation,
+          pauseFor: const Duration(seconds: 4),
+          listenFor: const Duration(seconds: 30),
+        ),
+      );
+    } catch (e) {
+      debugPrint('STT listen error: $e');
+      onError?.call(e.toString());
+    }
   }
 
   @override
-  Future<void> stop() => _speech.stop();
+  Future<void> stop() async {
+    _currentOnError = null;
+    try {
+      await _speech.stop();
+    } catch (_) {}
+  }
 }
 
 // ─────────────────────────────────────────── Ghi âm · Chủ sở hữu: Khánh (#11)
