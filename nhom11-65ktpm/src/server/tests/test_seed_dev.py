@@ -1,6 +1,7 @@
 from sqlalchemy import func, select
 
 from app.models.content import Lesson
+from app.models.path import PathNode, UserPathProgress
 from app.models.practice import SrsCard, Streak
 from app.models.progress import LearningEvent
 from app.models.user import User
@@ -56,6 +57,20 @@ def test_seed_course_descriptions_reflect_each_groups_topics(db_session):
         descriptions[level] = description
 
     assert descriptions["HSK1"] != descriptions["HSK2"]
+
+
+def test_seed_creates_progress_for_every_path_node(db_session):
+    _seed(db_session, reset=True)
+    demo = db_session.scalar(select(User).where(User.email == "demo@chailish.dev"))
+    nodes = db_session.scalars(select(PathNode).order_by(PathNode.order_index)).all()
+    progress = db_session.scalars(
+        select(UserPathProgress).where(UserPathProgress.user_id == demo.id)
+    ).all()
+    progress_by_node = {item.node_id: item for item in progress}
+
+    assert len(progress_by_node) == len(nodes) == 16
+    assert progress_by_node[nodes[0].id].status == "completed"
+    assert all(progress_by_node[node.id].status == "locked" for node in nodes[2:])
 
 
 def test_seed_generates_30_days_of_events_once(db_session):

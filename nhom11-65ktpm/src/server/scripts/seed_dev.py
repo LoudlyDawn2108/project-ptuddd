@@ -163,8 +163,11 @@ def _seed_learning_data(db: Session, user: User, lessons: list[Lesson], nodes: l
     now = datetime.now(timezone.utc)
     today = date.today()
 
-    statuses = [("completed", 92.0, 3), ("in_progress", 65.0, 1), ("locked", None, 0), ("locked", None, 0)]
-    for node, (status, score, stars) in zip(nodes, statuses):
+    initial_statuses = [("completed", 92.0, 3), ("in_progress", 65.0, 1)]
+    for index, node in enumerate(nodes):
+        status, score, stars = (
+            initial_statuses[index] if index < len(initial_statuses) else ("locked", None, 0)
+        )
         db.add(UserPathProgress(
             user_id=user.id, node_id=node.id, status=status, best_score=score, stars=stars,
             attempts_count=1 if score is not None else 0,

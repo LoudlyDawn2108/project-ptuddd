@@ -100,7 +100,7 @@ Kiểm tra:
 | Dữ liệu | Chi tiết |
 |:--|:--|
 | Bài học | Dữ liệu từ vựng sơ cấp theo chủ đề được nạp từ `data/lessons/<cấp>/lesson-XX.json`, chia vào hai nhóm khóa học nội bộ HSK1 và HSK2; các nhóm này không đại diện cho danh sách HSK chính thức. Mỗi bài gồm từ vựng, điểm ngữ pháp và kịch bản cho Trợ lý AI. |
-| Lộ trình | Chặng "HSK 1 - Khởi động": các bài HSK1 trong dữ liệu và bài kiểm tra cuối chặng. |
+| Lộ trình | Chặng "HSK 1 - Khởi động" hiện gồm các bài HSK1 và bài kiểm tra cuối chặng. Các bài thuộc nhóm HSK2 đã có trong khóa học nhưng chưa được đưa vào lộ trình; cần bổ sung một chặng HSK2 riêng. |
 | `demo@chailish.dev` / `Demo12345` | Đã học xong bài 1, đang học bài 2. Có 14 thẻ flashcard (một phần đến hạn hôm nay), thống kê 7 ngày, chuỗi 4 ngày học. |
 | `new@chailish.dev` / `Demo12345` | Tài khoản trống, dùng để test luồng người dùng mới. |
 

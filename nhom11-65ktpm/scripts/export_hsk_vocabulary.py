@@ -16,7 +16,7 @@ def build_export() -> dict:
     vocabulary = []
     lesson_ids = set()
     word_ids = set()
-    hanzi_values = set()
+    hanzi_pinyin_values = set()
 
     paths = sorted(
         path
@@ -53,10 +53,11 @@ def build_export() -> dict:
                 raise ValueError(f"{path}: word is missing fields {', '.join(missing)}")
             if word["id"] in word_ids:
                 raise ValueError(f"{path}: duplicate word id {word['id']}")
-            if word["hanzi"] in hanzi_values:
-                raise ValueError(f"{path}: duplicate hanzi {word['hanzi']}")
+            hanzi_pinyin = (word["hanzi"], word["pinyin"])
+            if hanzi_pinyin in hanzi_pinyin_values:
+                raise ValueError(f"{path}: duplicate hanzi/pinyin {hanzi_pinyin}")
             word_ids.add(word["id"])
-            hanzi_values.add(word["hanzi"])
+            hanzi_pinyin_values.add(hanzi_pinyin)
             vocabulary.append({
                 "level": expected_level,
                 "lessonId": lesson["id"],
