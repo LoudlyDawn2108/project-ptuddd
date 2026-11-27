@@ -76,6 +76,7 @@ flutter:
   assets:
     - assets/data/
     - assets/dev/lessons/hsk1/
+    - assets/dev/lessons/hsk2/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

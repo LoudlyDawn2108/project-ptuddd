@@ -40,6 +40,14 @@ void main() {
       expect((await repo.lessonByCode('hsk1-family-02'))?.id, 2);
     });
 
+    test('AssetLessonRepository nạp HSK2 sau HSK1 theo thứ tự', () async {
+      final lessons = await AssetLessonRepository().lessons();
+      final firstHsk2 = lessons.firstWhere((lesson) => lesson.level == 'HSK2');
+      expect(firstHsk2.id, 16);
+      expect(firstHsk2.code, 'hsk2-family-01');
+      expect(firstHsk2.order, 1);
+    });
+
     test('mẹo phát âm mẫu đọc được', () async {
       final raw = jsonDecode(await rootBundle.loadString('assets/data/pronunciation_tips.json')) as Map<String, dynamic>;
       final tips = [for (final t in raw['tips'] as List) PronunciationTip.fromJson(t as Map<String, dynamic>)];

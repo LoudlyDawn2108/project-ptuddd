@@ -5,9 +5,8 @@
     python -m scripts.seed_dev --reset    # xóa tài khoản demo rồi tạo lại dữ liệu học tập từ đầu
 
 Dữ liệu tạo ra:
-- Khóa HSK1 với các bài mẫu đọc từ `data/lessons/hsk1/lesson-*.json` (hiện 3 bài).
-  Bài nào cũng có điểm ngữ pháp và kịch bản cho Trợ lý AI.
-- Lộ trình: chặng "HSK 1 - Khởi động" gồm 3 bài và bài kiểm tra cuối chặng.
+- Các khóa học và bài học đọc từ `data/lessons/<cấp>/lesson-*.json`.
+- Lộ trình HSK1 gồm các bài HSK1 và bài kiểm tra cuối chặng.
 - Tài khoản demo (xem DEMO_USERS) kèm tiến độ lộ trình, thẻ flashcard đến hạn hôm nay
   và 30 ngày sự kiện học tập giả (`learning_events`), từ đó tự tính thống kê ngày,
   streak và XP như dữ liệu thật.
@@ -72,17 +71,31 @@ def _lesson_specs() -> list[dict]:
 
 
 def seed_content(db: Session) -> list[Lesson]:
-    course = db.scalar(select(Course).where(Course.code == "HSK1"))
-    if course is None:
-        course = Course(code="HSK1")
-        db.add(course)
-    course.title = "HSK 1"
-    course.description = "Giáo trình HSK cấp 1: khoảng 150 từ vựng và các mẫu câu cơ bản."
-    course.order_index = 1
-    db.flush()
-
     lessons: list[Lesson] = []
-    for spec in _lesson_specs():
+    specs = _lesson_specs()
+    topics_by_level: dict[str, list[str]] = {}
+    for spec in specs:
+        topic = spec["topic"]
+        if topic:
+            topics = topics_by_level.setdefault(spec["level"], [])
+            if topic not in topics:
+                topics.append(topic)
+
+    for spec in specs:
+        level = spec["level"]
+        topics = topics_by_level.get(level)
+        if not topics:
+            raise ValueError(f"No lesson topics found for course level {level!r}")
+
+        course = db.scalar(select(Course).where(Course.code == level))
+        if course is None:
+            course = Course(code=level)
+            db.add(course)
+        course.title = {"HSK1": "HSK 1", "HSK2": "HSK 2", "PINYIN": "Pinyin"}.get(level, level)
+        course.description = f"Từ vựng sơ cấp theo chủ đề: {', '.join(topics)}."
+        course.order_index = {"PINYIN": 0, "HSK1": 1, "HSK2": 2}.get(level, 3)
+        db.flush()
+
         lesson = db.scalar(select(Lesson).where(Lesson.code == spec["code"]))
         if lesson is None:
             lesson = Lesson(code=spec["code"], course_id=course.id)
@@ -109,20 +122,21 @@ def seed_content(db: Session) -> list[Lesson]:
             word.han_viet = w["han_viet"]
             word.meaning_vi = w["meaning_vi"]
             word.example = w["example"]
-            word.hsk_level = 1
+            word.hsk_level = int(level[3:]) if level.startswith("HSK") and level[3:].isdigit() else None
         lessons.append(lesson)
     db.flush()
     return lessons
 
 
 def seed_path(db: Session, lessons: list[Lesson]) -> list[PathNode]:
+    lessons = [lesson for lesson in lessons if lesson.course.code == "HSK1"]
     stage = db.scalar(select(PathStage).where(PathStage.code == "hsk1-stage-1"))
     if stage is None:
         stage = PathStage(code="hsk1-stage-1")
         db.add(stage)
     stage.order_index = 1
     stage.title = "HSK 1 - Khởi động"
-    stage.description = "Chào hỏi, gia đình và số đếm."
+    stage.description = "Các bài học HSK1 theo chủ đề và bài kiểm tra cuối chặng."
     stage.level = "HSK1"
     stage.pass_score = 70
     db.flush()
@@ -149,8 +163,11 @@ def _seed_learning_data(db: Session, user: User, lessons: list[Lesson], nodes: l
     now = datetime.now(timezone.utc)
     today = date.today()
 
-    statuses = [("completed", 92.0, 3), ("in_progress", 65.0, 1), ("locked", None, 0), ("locked", None, 0)]
-    for node, (status, score, stars) in zip(nodes, statuses):
+    initial_statuses = [("completed", 92.0, 3), ("in_progress", 65.0, 1)]
+    for index, node in enumerate(nodes):
+        status, score, stars = (
+            initial_statuses[index] if index < len(initial_statuses) else ("locked", None, 0)
+        )
         db.add(UserPathProgress(
             user_id=user.id, node_id=node.id, status=status, best_score=score, stars=stars,
             attempts_count=1 if score is not None else 0,
