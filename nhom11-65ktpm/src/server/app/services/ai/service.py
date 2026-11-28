@@ -190,8 +190,16 @@ def save_grammar_feedback(
     analysis: GrammarAnalysis,
     model: str,
     usage: Usage,
+    grammar_points: list[dict] | None = None,
 ) -> GrammarFeedback:
-    errors = [e.model_dump() for e in analysis.errors]
+    # Gắn tên dễ đọc (vd. "A 是 B") cho mỗi lỗi để app không phải hiện id nội bộ "gp-shi".
+    labels = grammar_point_labels(grammar_points)
+    errors = []
+    for e in analysis.errors:
+        item = e.model_dump()
+        gp = item.get("grammar_point_id")
+        item["grammar_point_label"] = labels.get(gp) if gp else None
+        errors.append(item)
     feedback = GrammarFeedback(
         message_id=user_message.id,
         user_id=conv.user_id,
@@ -211,6 +219,16 @@ def save_grammar_feedback(
     add_usage(conv, model, usage)
     db.flush()
     return feedback
+
+
+def grammar_point_labels(grammar_points: list[dict] | None) -> dict[str, str]:
+    """id điểm ngữ pháp -> mẫu câu (`pattern`) lấy từ dữ liệu bài học."""
+    labels: dict[str, str] = {}
+    for gp in grammar_points or []:
+        gp_id, pattern = gp.get("id"), gp.get("pattern")
+        if gp_id and pattern:
+            labels[gp_id] = pattern
+    return labels
 
 
 # ---------------------------------------------------------------- Tổng kết phiên
@@ -240,7 +258,8 @@ def build_summary(conv: AiConversation) -> dict:
                         "explanation_vi": e.get("explanation_vi"),
                     }
                 )
-            gp = e.get("grammar_point_id")
+            # Ưu tiên tên dễ đọc; phản hồi cũ chưa có tên thì giữ id.
+            gp = e.get("grammar_point_label") or e.get("grammar_point_id")
             if gp and gp not in review_points:
                 review_points.append(gp)
 

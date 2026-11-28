@@ -159,6 +159,7 @@ async def send_message(
         cache_key=service.cache_key_for(conv),
         question=question,
         answer=body.content,
+        grammar_points=ctx.grammar_points,
     )
     return StreamingResponse(
         stream,
@@ -179,6 +180,7 @@ async def _stream_turn(
     cache_key: str,
     question: str | None,
     answer: str,
+    grammar_points: list[dict] | None = None,
 ) -> AsyncIterator[str]:
     # Phân tích ngữ pháp chạy song song với việc stream câu trả lời của AI.
     grammar_task: asyncio.Task[GrammarResult] = asyncio.create_task(
@@ -202,7 +204,8 @@ async def _stream_turn(
             conv = s.get(AiConversation, conversation_id)
             msg = s.get(AiMessage, user_message_id)
             feedback = service.save_grammar_feedback(
-                s, conv, msg, result.analysis, result.model, result.usage
+                s, conv, msg, result.analysis, result.model, result.usage,
+                grammar_points=grammar_points,
             )
             s.commit()
             return [_sse("grammar", GrammarFeedbackOut.model_validate(feedback).model_dump())]
