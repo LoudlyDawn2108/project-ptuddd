@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:chailish/core/contracts/lesson_repository.dart';
 import 'package:chailish/core/contracts/models/learning_event.dart';
 import 'package:chailish/core/contracts/models/pronunciation.dart';
 import 'package:chailish/core/contracts/progress_service.dart';
@@ -192,6 +193,7 @@ void main() {
   Widget buildTestApp({Widget? child}) {
     return ProviderScope(
       overrides: [
+        lessonRepositoryProvider.overrideWithValue(AssetLessonRepository()),
         voiceRecorderProvider.overrideWithValue(recorder),
         speechRecognizerProvider.overrideWithValue(speech),
         ttsServiceProvider.overrideWithValue(tts),
