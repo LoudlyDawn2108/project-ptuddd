@@ -51,6 +51,34 @@ void main() {
       expect(results.first['name'], 'ChaiLish');
     });
 
+
+    test('migration tự động tạo bảng local_events', () async {
+      final db = await databaseHelper.database;
+
+      // Kiểm tra bảng local_events đã được tạo.
+      final tables = await db.rawQuery('''
+        SELECT name
+        FROM sqlite_master
+        WHERE type = 'table'
+          AND name = 'local_events'
+      ''');
+
+      expect(tables.length, 1);
+
+      // Kiểm tra các cột của bảng.
+      final columns = await db.rawQuery(
+        'PRAGMA table_info(local_events)',
+      );
+
+      final columnNames = columns.map((column) => column['name']).toSet();
+
+      expect(
+        columnNames,
+        containsAll(['id', 'payload', 'occurred_at']),
+      );
+    });
+
+
     test('migration tự động tạo bảng sync_outbox', () async {
       final db = await databaseHelper.database;
 
@@ -85,7 +113,7 @@ void main() {
         'SELECT COUNT(*) AS total FROM schema_migrations',
       );
 
-      expect(result.first['total'], 1);
+expect(result.first['total'], 2);
     });
 
     test('sử dụng lại kết nối database đã mở', () async {

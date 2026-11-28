@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:chailish/core/contracts/contracts.dart';
 import 'package:chailish/core/network/api_client.dart';
+import 'package:chailish/core/storage/database_helper.dart';
 import 'package:chailish/core/storage/secure_storage_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,39 +11,67 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  setUpAll(() {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  });
+
   group('Dữ liệu bài mẫu', () {
     test('assets/dev/lessons trùng với nhom11-65ktpm/data/lessons (chạy scripts/sync_dev_data.sh nếu lệch)', () {
       final data = Directory('../../data/lessons');
-      final files = data.listSync(recursive: true).whereType<File>().where((f) => f.path.endsWith('.json')).toList();
+      final files = data
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.json'))
+          .toList();
       expect(files, isNotEmpty);
       for (final f in files) {
         final rel = f.path.substring(data.path.length);
         final copy = File('assets/dev/lessons$rel');
-        expect(copy.existsSync(), isTrue, reason: 'thiếu bản sao $rel trong assets/dev/lessons');
-        expect(jsonDecode(copy.readAsStringSync()), jsonDecode(f.readAsStringSync()), reason: '$rel bị lệch');
+        expect(
+          copy.existsSync(),
+          isTrue,
+          reason: 'thiếu bản sao $rel trong assets/dev/lessons',
+        );
+        expect(
+          jsonDecode(copy.readAsStringSync()),
+          jsonDecode(f.readAsStringSync()),
+          reason: '$rel bị lệch',
+        );
       }
     });
 
-    test('AssetLessonRepository đọc đủ bài, id theo thứ tự như seed_dev', () async {
-      final repo = AssetLessonRepository();
-      final lessons = await repo.lessons();
-      expect(lessons.length, greaterThanOrEqualTo(3));
-      expect(lessons.map((l) => l.id), [for (var i = 1; i <= lessons.length; i++) i]);
-      final first = lessons.first;
-      expect(first.code, 'hsk1-greetings-01');
-      expect(first.words.first.hanzi, '你好');
-      expect(first.words.first.key, 'hsk1-greetings-01/ni-hao');
-      expect(first.grammarPoints, isNotEmpty);
-      expect((await repo.lessonByCode('hsk1-family-02'))?.id, 2);
-    });
+    test(
+      'AssetLessonRepository đọc đủ bài, id theo thứ tự như seed_dev',
+      () async {
+        final repo = AssetLessonRepository();
+        final lessons = await repo.lessons();
+        expect(lessons.length, greaterThanOrEqualTo(3));
+        expect(lessons.map((l) => l.id), [
+          for (var i = 1; i <= lessons.length; i++) i,
+        ]);
+        final first = lessons.first;
+        expect(first.code, 'hsk1-greetings-01');
+        expect(first.words.first.hanzi, '你好');
+        expect(first.words.first.key, 'hsk1-greetings-01/ni-hao');
+        expect(first.grammarPoints, isNotEmpty);
+        expect((await repo.lessonByCode('hsk1-family-02'))?.id, 2);
+      },
+    );
 
     test('mẹo phát âm mẫu đọc được', () async {
-      final raw = jsonDecode(await rootBundle.loadString('assets/data/pronunciation_tips.json')) as Map<String, dynamic>;
-      final tips = [for (final t in raw['tips'] as List) PronunciationTip.fromJson(t as Map<String, dynamic>)];
+      final raw = jsonDecode(
+        await rootBundle.loadString('assets/data/pronunciation_tips.json'),
+      ) as Map<String, dynamic>;
+      final tips = [
+        for (final t in raw['tips'] as List)
+          PronunciationTip.fromJson(t as Map<String, dynamic>),
+      ];
       expect(tips.map((t) => t.sound), containsAll(['zh', 'tone3']));
     });
   });
@@ -61,7 +90,12 @@ void main() {
       expect(j['type'], 'pronunciation_scored');
       expect(j['occurred_at'], '2026-11-20T12:00:00.000Z');
       expect(j.containsKey('data'), isFalse);
-      expect(RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$').hasMatch(e.id), isTrue);
+      expect(
+        RegExp(
+          r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+        ).hasMatch(e.id),
+        isTrue,
+      );
       final back = LearningEvent.fromJson(j);
       expect(back.id, e.id);
       expect(back.type, e.type);
@@ -70,20 +104,33 @@ void main() {
 
     test('ProgressSummary tính streak, XP, phút học', () {
       final now = DateTime(2026, 11, 21, 20);
-      LearningEvent at(int daysAgo, {int xp = 1, int sec = 120}) => LearningEvent(
-        type: LearningEventType.srsReview,
-        occurredAt: now.subtract(Duration(days: daysAgo)),
-        xp: xp,
-        durationSec: sec,
-      );
-      final s = ProgressSummary.from([at(0), at(0), at(1), at(4), at(5), at(6), at(7)], now: now);
+      LearningEvent at(int daysAgo, {int xp = 1, int sec = 120}) =>
+          LearningEvent(
+            type: LearningEventType.srsReview,
+            occurredAt: now.subtract(Duration(days: daysAgo)),
+            xp: xp,
+            durationSec: sec,
+          );
+      final s = ProgressSummary.from([
+        at(0),
+        at(0),
+        at(1),
+        at(4),
+        at(5),
+        at(6),
+        at(7),
+      ], now: now);
       expect(s.currentStreak, 2);
       expect(s.longestStreak, 4);
       expect(s.xpTotal, 7);
       expect(s.minutesOn(now), 4);
 
       final yesterdayOnly = ProgressSummary.from([at(1)], now: now);
-      expect(yesterdayOnly.currentStreak, 1, reason: 'chưa học hôm nay vẫn giữ streak tới hết ngày');
+      expect(
+        yesterdayOnly.currentStreak,
+        1,
+        reason: 'chưa học hôm nay vẫn giữ streak tới hết ngày',
+      );
       expect(ProgressSummary.from([at(2)], now: now).currentStreak, 0);
     });
 
@@ -94,24 +141,48 @@ void main() {
       final s = ProgressSummary.from(events, now: now);
       expect(events.length, greaterThan(100));
       expect(s.currentStreak, greaterThanOrEqualTo(5));
-      expect(s.minutesByDay.length, lessThan(30), reason: 'có ngày nghỉ cho heatmap');
+      expect(
+        s.minutesByDay.length,
+        lessThan(30),
+        reason: 'có ngày nghỉ cho heatmap',
+      );
       expect(events.every((e) => !e.occurredAt.isAfter(now)), isTrue);
-      expect(s.countByType.keys, containsAll(LearningEventType.values.where((t) =>
-          t != LearningEventType.quizCompleted && t != LearningEventType.placementCompleted && t != LearningEventType.studySession)));
+      expect(
+        s.countByType.keys,
+        containsAll(
+          LearningEventType.values.where(
+            (t) =>
+                t != LearningEventType.quizCompleted &&
+                t != LearningEventType.placementCompleted &&
+                t != LearningEventType.studySession,
+          ),
+        ),
+      );
     });
   });
 
   group('Bản giả', () {
-    test('FakePronunciationScorer: ổn định, đủ âm tiết, JSON khứ hồi', () async {
-      final scorer = FakePronunciationScorer();
-      final a = await scorer.assess(referenceHanzi: '我是学生。', referencePinyin: 'wǒ shì xué sheng');
-      final b = await scorer.assess(referenceHanzi: '我是学生。', referencePinyin: 'wǒ shì xué sheng');
-      expect(a.syllables.length, 4);
-      expect(a.toJson(), b.toJson());
-      expect(a.syllables[1].expected.initial, 'sh');
-      final back = PronunciationResult.fromJson(jsonDecode(jsonEncode(a.toJson())) as Map<String, dynamic>);
-      expect(back.toJson(), a.toJson());
-    });
+    test(
+      'FakePronunciationScorer: ổn định, đủ âm tiết, JSON khứ hồi',
+      () async {
+        final scorer = FakePronunciationScorer();
+        final a = await scorer.assess(
+          referenceHanzi: '我是学生。',
+          referencePinyin: 'wǒ shì xué sheng',
+        );
+        final b = await scorer.assess(
+          referenceHanzi: '我是学生。',
+          referencePinyin: 'wǒ shì xué sheng',
+        );
+        expect(a.syllables.length, 4);
+        expect(a.toJson(), b.toJson());
+        expect(a.syllables[1].expected.initial, 'sh');
+        final back = PronunciationResult.fromJson(
+          jsonDecode(jsonEncode(a.toJson())) as Map<String, dynamic>,
+        );
+        expect(back.toJson(), a.toJson());
+      },
+    );
 
     test('splitPinyin tách thanh mẫu / vận mẫu / thanh điệu', () {
       expect(splitPinyin('hǎo').toString(), 'hao3');
@@ -156,11 +227,14 @@ void main() {
     late List<http.Request> sent;
     late SecureStorageService storage;
     late ApiClient api;
+    late DatabaseHelper databaseHelper;
 
-    setUp(() {
+    setUp(() async {
       FlutterSecureStorage.setMockInitialValues({});
       sent = [];
+
       storage = SecureStorageService(const FlutterSecureStorage());
+
       api = ApiClient(
         baseUrl: 'http://x/api',
         storage: storage,
@@ -168,46 +242,149 @@ void main() {
           sent.add(req);
           final n = (jsonDecode(req.body)['events'] as List).length;
           return http.Response(
-            jsonEncode({'accepted': n, 'duplicates': 0, 'xp_total': n, 'current_streak': 1, 'longest_streak': 1}),
+            jsonEncode({
+              'accepted': n,
+              'duplicates': 0,
+              'xp_total': n,
+              'current_streak': 1,
+              'longest_streak': 1,
+            }),
             200,
           );
         }),
       );
+
+      databaseHelper = DatabaseHelper(
+        databaseOpener: () {
+          return databaseFactory.openDatabase(inMemoryDatabasePath);
+        },
+      );
     });
 
-    test('chưa đăng nhập thì giữ lại, đăng nhập xong flush gửi lên /events', () async {
-      final outbox = MemoryOutbox(api);
-      final progress = LocalProgressService(outbox, api);
-      await progress.record(LearningEvent(type: LearningEventType.srsReview, xp: 1));
-      await outbox.flush();
-      expect(sent, isEmpty);
-      expect(await outbox.pendingCount(), 1);
-      expect(progress.events.length, 1);
-
-      await storage.saveToken('token');
-      await outbox.flush();
-      expect(sent.single.url.path, '/api/events');
-      expect(sent.single.headers['Authorization'], 'Bearer token');
-      expect(await outbox.pendingCount(), 0);
+    tearDown(() async {
+      await databaseHelper.close();
     });
+
+    test(
+      'chưa đăng nhập thì giữ lại, đăng nhập xong flush gửi lên /events',
+      () async {
+        final outbox = MemoryOutbox(api);
+        final progress = LocalProgressService(outbox, api, databaseHelper);
+        await progress.record(
+          LearningEvent(type: LearningEventType.srsReview, xp: 1),
+        );
+        await outbox.flush();
+        expect(sent, isEmpty);
+        expect(await outbox.pendingCount(), 1);
+        expect(progress.events.length, 1);
+
+        await storage.saveToken('token');
+        await outbox.flush();
+        expect(sent.single.url.path, '/api/events');
+        expect(sent.single.headers['Authorization'], 'Bearer token');
+        expect(await outbox.pendingCount(), 0);
+      },
+    );
 
     test('dữ liệu giả từ addAll không gửi lên server', () async {
       await storage.saveToken('token');
       final outbox = MemoryOutbox(api);
-      final progress = LocalProgressService(outbox, api);
-      await progress.addAll([LearningEvent(type: LearningEventType.studySession)]);
+      final progress = LocalProgressService(outbox, api, databaseHelper);
+      await progress.addAll([
+        LearningEvent(type: LearningEventType.studySession),
+      ]);
       await outbox.flush();
       expect(sent, isEmpty);
       expect(progress.events.length, 1);
+    });
+
+    test('local_events vẫn tồn tại sau khi mở lại database', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'progress_persistence_test_',
+      );
+      final dbPath = '${tempDir.path}/progress_test.db';
+
+      final firstHelper = DatabaseHelper(
+        databaseOpener: () => databaseFactory.openDatabase(dbPath),
+      );
+
+      final event = LearningEvent(type: LearningEventType.srsReview, xp: 5);
+
+      final firstProgress = LocalProgressService(
+        MemoryOutbox(api),
+        api,
+        firstHelper,
+      );
+
+      await firstProgress.ready;
+      await firstProgress.record(event);
+
+      expect(firstProgress.events.any((item) => item.id == event.id), isTrue);
+
+      firstProgress.dispose();
+      await firstHelper.close();
+
+      final secondHelper = DatabaseHelper(
+        databaseOpener: () => databaseFactory.openDatabase(dbPath),
+      );
+
+      final secondProgress = LocalProgressService(
+        MemoryOutbox(api),
+        api,
+        secondHelper,
+      );
+
+      try {
+        await secondProgress.ready;
+
+        expect(
+          secondProgress.events.any((item) => item.id == event.id),
+          isTrue,
+          reason:
+              'Sự kiện phải được khôi phục từ SQLite sau khi mở lại database',
+        );
+      } finally {
+        secondProgress.dispose();
+        await secondHelper.close();
+        await tempDir.delete(recursive: true);
+      }
     });
   });
 
   test('mọi provider hợp đồng mặc định khởi tạo được', () {
     FlutterSecureStorage.setMockInitialValues({});
-    final container = ProviderContainer();
+
+    final container = ProviderContainer(
+      overrides: [
+        ttsServiceProvider.overrideWithValue(_TestTtsService()),
+        speechRecognizerProvider.overrideWithValue(_TestSpeechRecognizer()),
+      ],
+    );
+
     addTearDown(container.dispose);
     for (final c in contractEntries) {
       expect(container.read(c.provider), isNotNull, reason: c.name);
     }
   });
+}
+
+class _TestTtsService implements TtsService {
+  @override
+  Future<void> speak(String text, {bool slow = false}) async {}
+
+  @override
+  Future<void> stop() async {}
+}
+
+class _TestSpeechRecognizer implements SpeechRecognizer {
+  @override
+  Future<bool> initialize() async => false;
+
+  @override
+  Future<void> listen({
+    required void Function(String text, bool isFinal) onResult,
+  }) async {}
+
+  @override
+  Future<void> stop() async {}
 }
