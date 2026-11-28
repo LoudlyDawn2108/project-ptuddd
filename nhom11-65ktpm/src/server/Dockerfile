@@ -34,6 +34,8 @@ RUN pip install --no-index --find-links=/wheels /wheels/* && rm -rf /wheels
 COPY --chown=app:app alembic.ini ./
 COPY --chown=app:app alembic ./alembic
 COPY --chown=app:app app ./app
+# Script seed dữ liệu dev (bài học mount từ ../../data/lessons, xem docker-compose.yml).
+COPY --chown=app:app scripts ./scripts
 COPY --chown=app:app docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
