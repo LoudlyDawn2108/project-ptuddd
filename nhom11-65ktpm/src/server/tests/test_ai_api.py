@@ -281,7 +281,8 @@ def test_max_turns_then_finish_summary(client, auth_headers, fake_provider, less
     assert summary["overall_score"] == 85.0
     assert summary["turns"] == 2 and summary["correct_sentences"] == 1
     assert summary["error_counts"] == {"Dùng sai động từ": 1}
-    assert summary["grammar_points_to_review"] == ["gp-shi"]
+    # Tổng kết hiện mẫu câu của bài thay vì id nội bộ.
+    assert summary["grammar_points_to_review"] == ["A 是 B"]
     assert summary["top_errors"][0]["label_vi"] == "Dùng sai động từ"
 
     # Phiên đã kết thúc thì không gửi thêm được.

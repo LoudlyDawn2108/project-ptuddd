@@ -47,12 +47,16 @@ class GrammarErrorItem {
   final String explanationVi;
   final String? grammarPointId;
 
+  /// Mẫu câu của điểm ngữ pháp (vd. "A 是 B"), server lấy từ dữ liệu bài học.
+  final String? grammarPointLabel;
+
   const GrammarErrorItem({
     required this.span,
     required this.correction,
     required this.errorType,
     required this.explanationVi,
     this.grammarPointId,
+    this.grammarPointLabel,
   });
 
   factory GrammarErrorItem.fromJson(Map<String, dynamic> json) => GrammarErrorItem(
@@ -61,6 +65,7 @@ class GrammarErrorItem {
         errorType: json['error_type'] as String? ?? 'other',
         explanationVi: json['explanation_vi'] as String? ?? '',
         grammarPointId: json['grammar_point_id'] as String?,
+        grammarPointLabel: json['grammar_point_label'] as String?,
       );
 }
 

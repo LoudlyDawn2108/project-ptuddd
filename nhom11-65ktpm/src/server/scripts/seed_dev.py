@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import sys
 import uuid
@@ -39,7 +40,15 @@ from app.models.progress import EventType
 from app.models.user import User
 from app.services.progress import NewEvent, record_events
 
-DATA_DIR = Path(__file__).resolve().parents[3] / "data" / "lessons"
+def _default_data_dir() -> Path:
+    # Chạy trong Docker: compose mount `data/lessons` và đặt LESSONS_DATA_DIR.
+    env = os.environ.get("LESSONS_DATA_DIR")
+    if env:
+        return Path(env)
+    return Path(__file__).resolve().parents[3] / "data" / "lessons"
+
+
+DATA_DIR = _default_data_dir()
 
 DEMO_USERS = [
     # Tài khoản chính: đã học xong bài 1, đang học bài 2.
@@ -268,6 +277,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if settings.ENVIRONMENT == "production":
         print("Từ chối chạy: ENVIRONMENT=production. Script này chỉ dành cho dev.", file=sys.stderr)
+        return 1
+
+    if not any(DATA_DIR.glob("*/lesson-*.json")):
+        print(f"Không tìm thấy bài học nào trong {DATA_DIR} (đặt LESSONS_DATA_DIR nếu để chỗ khác).",
+              file=sys.stderr)
         return 1
 
     with get_session_factory()() as db:

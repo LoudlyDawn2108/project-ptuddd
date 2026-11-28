@@ -101,11 +101,15 @@ jobs:
         run: |
           docker compose up -d
           for i in $(seq 1 30); do
-            if curl -fsk https://localhost/api/health; then exit 0; fi
+            if curl -fsk https://localhost/api/health; then break; fi
+            if [ "$i" = 30 ]; then docker compose logs; exit 1; fi
             sleep 2
           done
-          docker compose logs
-          exit 1
+      - name: Nạp dữ liệu dev trong container và đăng nhập tài khoản demo
+        run: |
+          docker compose exec -T api python -m scripts.seed_dev --reset
+          curl -fsk https://localhost/api/auth/login -H 'content-type: application/json' \
+            -d '{"email":"demo@chailish.dev","password":"Demo12345"}' > /dev/null
       - name: Dọn dẹp
         if: always()
         run: docker compose down -v
