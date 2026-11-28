@@ -425,12 +425,18 @@ class _ErrorCard extends StatelessWidget {
                   side: BorderSide.none,
                   visualDensity: VisualDensity.compact,
                 ),
-                const Spacer(),
-                if (error.grammarPointId != null)
-                  Text(
-                    'Điểm NP: ${error.grammarPointId}',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                  ),
+                const SizedBox(width: 8),
+                // Chỉ hiện mẫu câu dễ đọc, không hiện id nội bộ (vd. "gp-shi").
+                Expanded(
+                  child: error.grammarPointLabel == null
+                      ? const SizedBox.shrink()
+                      : Text(
+                          'Ngữ pháp: ${error.grammarPointLabel}',
+                          textAlign: TextAlign.end,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        ),
+                ),
               ],
             ),
             const SizedBox(height: 6),

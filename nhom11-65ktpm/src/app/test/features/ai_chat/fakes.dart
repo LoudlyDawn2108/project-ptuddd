@@ -36,6 +36,7 @@ Map<String, dynamic> grammarJson({required bool correct}) => {
                 'error_type': 'verb_usage',
                 'explanation_vi': 'Thiếu động từ 是.',
                 'grammar_point_id': 'gp-shi',
+                'grammar_point_label': 'A 是 B',
               }
             ],
       'error_types': correct ? [] : ['verb_usage'],

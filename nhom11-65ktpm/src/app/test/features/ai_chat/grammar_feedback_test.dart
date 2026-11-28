@@ -45,7 +45,8 @@ void main() {
       expect(find.text('Dùng sai động từ'), findsOneWidget);
       expect(find.text('我是学生'), findsOneWidget);
       expect(find.text('Thiếu động từ 是.'), findsOneWidget);
-      expect(find.text('Điểm NP: gp-shi'), findsOneWidget);
+      expect(find.text('Ngữ pháp: A 是 B'), findsOneWidget);
+      expect(find.textContaining('gp-shi'), findsNothing);
     });
 
     testWidgets('correct sentence shows no errors', (tester) async {
