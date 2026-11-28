@@ -1,5 +1,9 @@
 import httpx
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import Session
+
+from app.api.routes import pronunciation as pron_route
 
 from app.core.config import settings
 from app.models.pronunciation import Attempt, PronunciationRequest, SyllableResult
@@ -167,15 +171,19 @@ def _wav_bytes(duration_ms: int = 1000) -> bytes:
     return header + data
 
 
-def _mock_azure(monkeypatch, status_code=200, payload=None, exc=None):
+def _mock_azure(monkeypatch, status_code=200, payload=None, exc=None, text=None):
+    """text != None: Azure tra body khong phai JSON (resp.json() raise)."""
     monkeypatch.setattr(settings, "AZURE_SPEECH_KEY", "test_mock_key_123")
     monkeypatch.setattr(settings, "AZURE_SPEECH_REGION", "eastasia")
 
     class MockResponse:
         def __init__(self):
             self.status_code = status_code
+            self.text = text or ""
 
         def json(self):
+            if text is not None:
+                raise ValueError("not json")
             return payload
 
     async def mock_post(*args, **kwargs):
@@ -312,3 +320,79 @@ def test_assess_without_key_does_not_write_db(client, auth_headers, db_session, 
     )
     assert resp.status_code == 503
     assert db_session.scalars(select(PronunciationRequest)).all() == []
+
+
+def _post_ni_hao(client, auth_headers, wav=None):
+    return client.post(
+        "/api/pronunciation/assess",
+        data={"reference_text": "你好", "reference_pinyin": "nǐ hǎo"},
+        files={"audio_file": ("test.wav", wav or _wav_bytes(), "audio/wav")},
+        headers=auth_headers,
+    )
+
+
+def test_assess_non_json_body_returns_502_and_logs_failed(client, auth_headers, db_session, monkeypatch):
+    """Review #73 muc 2: Azure tra 200 nhung body khong phai JSON."""
+    _mock_azure(monkeypatch, text="<html>gateway</html>")
+    resp = _post_ni_hao(client, auth_headers)
+    assert resp.status_code == 502
+    logs = db_session.scalars(select(PronunciationRequest)).all()
+    assert [l.status for l in logs] == ["failed"]
+    assert "JSON" in logs[0].error_message
+
+
+def test_assess_malformed_payload_returns_502_and_logs_failed(client, auth_headers, db_session, monkeypatch):
+    """Review #73 muc 2: KeyError/TypeError khi dung syllables cung phai duoc log."""
+    payload = {"NBest": [{"PronunciationAssessment": {"AccuracyScore": "abc"}, "Words": []}]}
+    _mock_azure(monkeypatch, payload=payload)
+    resp = _post_ni_hao(client, auth_headers)
+    assert resp.status_code == 502
+    assert db_session.scalars(select(Attempt)).all() == []
+    logs = db_session.scalars(select(PronunciationRequest)).all()
+    assert [l.status for l in logs] == ["failed"]
+
+
+def test_assess_db_error_on_save_still_returns_score(client, auth_headers, db_session, monkeypatch):
+    """Review #73 muc 1: loi luu attempt khong lam mat diem; request van duoc log kem loi."""
+    _mock_azure(monkeypatch, payload=_AZURE_NI_HAO_TONE_ERROR)
+
+    def boom(*args, **kwargs):
+        raise OperationalError("INSERT attempts", {}, Exception("disk full"))
+
+    monkeypatch.setattr(pron_route, "_save_attempt", boom)
+    resp = _post_ni_hao(client, auth_headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["overall"] == 82.0
+    assert db_session.scalars(select(Attempt)).all() == []
+    logs = db_session.scalars(select(PronunciationRequest)).all()
+    assert [(l.status, l.attempt_id) for l in logs] == [("success", None)]
+    assert "Khong luu duoc attempt" in logs[0].error_message
+
+
+def test_assess_commit_error_does_not_hide_score_or_error_code(client, auth_headers, monkeypatch):
+    """Review #73 muc 1-2: commit loi trong _log_request khong che ket qua (200) hay ma loi (504)."""
+
+    def broken_commit(self):
+        raise OperationalError("COMMIT", {}, Exception("db down"))
+
+    monkeypatch.setattr(Session, "commit", broken_commit)
+
+    _mock_azure(monkeypatch, payload=_AZURE_NI_HAO_TONE_ERROR)
+    resp = _post_ni_hao(client, auth_headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["overall"] == 82.0
+
+    _mock_azure(monkeypatch, exc=httpx.ReadTimeout("slow"))
+    assert _post_ni_hao(client, auth_headers).status_code == 504
+
+
+def test_wav_duration_skips_extra_chunks():
+    """Review #73: WAV co chunk LIST truoc data van tinh dung thoi luong."""
+    wav = _wav_bytes(1000)
+    fmt_end = 12 + 8 + 16
+    list_chunk = b"LIST" + (26).to_bytes(4, "little") + b"INFOISFT" + (14).to_bytes(4, "little") + b"Lavf60.3.100" + bytes(2)
+    assert len(list_chunk) == 8 + 26
+    with_list = wav[:fmt_end] + list_chunk + wav[fmt_end:]
+    assert pron_route._wav_duration_ms(wav) == 1000
+    assert pron_route._wav_duration_ms(with_list) == 1000
+    assert pron_route._wav_duration_ms(b"not a wav file at all") is None

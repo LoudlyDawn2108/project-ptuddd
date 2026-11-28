@@ -3,6 +3,7 @@ from typing import Optional
 import os
 import tempfile
 import json
+import logging
 import re
 import time
 from datetime import datetime, timezone
@@ -14,6 +15,7 @@ from app.api.deps import CurrentUser, DbSession
 from app.models.pronunciation import Attempt, PronunciationRequest, SyllableResult
 
 router = APIRouter(prefix="/pronunciation", tags=["pronunciation"])
+logger = logging.getLogger("chailish.pronunciation")
 
 MAX_AUDIO_SIZE = 2 * 1024 * 1024  # 2MB
 
@@ -55,13 +57,26 @@ def split_pinyin(syllable: str) -> dict:
     return {"initial": "", "final": s, "tone": tone}
 
 def _wav_duration_ms(content: bytes) -> int | None:
-    """Uoc luong thoi luong WAV PCM tu header (byte rate o offset 28). Khong doc duoc thi None."""
-    if len(content) < 44 or content[:4] != b"RIFF" or content[8:12] != b"WAVE":
+    """Tinh thoi luong WAV PCM bang cach duyet cac chunk RIFF (fmt, data; bo qua LIST, fact...).
+    Khong doc duoc thi None."""
+    if len(content) < 12 or content[:4] != b"RIFF" or content[8:12] != b"WAVE":
         return None
-    byte_rate = int.from_bytes(content[28:32], "little")
-    if byte_rate <= 0:
-        return None
-    return int((len(content) - 44) * 1000 / byte_rate)
+    byte_rate = None
+    pos = 12
+    while pos + 8 <= len(content):
+        chunk_id = content[pos:pos + 4]
+        size = int.from_bytes(content[pos + 4:pos + 8], "little")
+        body = pos + 8
+        if chunk_id == b"fmt " and size >= 12:
+            byte_rate = int.from_bytes(content[body + 8:body + 12], "little")
+        elif chunk_id == b"data":
+            if not byte_rate:
+                return None
+            # Ban ghi dang stream co the de size = 0/0xFFFFFFFF: lay phan con lai cua file
+            data_len = min(size, len(content) - body) or (len(content) - body)
+            return int(data_len * 1000 / byte_rate)
+        pos = body + size + (size & 1)  # chunk RIFF duoc dem cho chan
+    return None
 
 
 def _log_request(
@@ -75,22 +90,27 @@ def _log_request(
     raw: dict | None = None,
     attempt_id=None,
 ) -> None:
-    """Ghi nhat ky moi lan goi Azure vao pronunciation_requests (#14)."""
-    db.add(
-        PronunciationRequest(
-            user_id=user.id,
-            attempt_id=attempt_id,
-            provider="azure",
-            reference_text=reference_text[:255],
-            audio_duration_ms=audio_ms,
-            processing_ms=int((time.monotonic() - started) * 1000),
-            status=status,
-            error_message=error,
-            raw_result=raw,
-            finished_at=datetime.now(timezone.utc),
+    """Ghi nhat ky moi lan goi Azure vao pronunciation_requests (#14).
+    Tu bat loi DB: ghi log khong duoc thi rollback, khong che ma loi/ket qua cua request."""
+    try:
+        db.add(
+            PronunciationRequest(
+                user_id=user.id,
+                attempt_id=attempt_id,
+                provider="azure",
+                reference_text=reference_text[:255],
+                audio_duration_ms=audio_ms,
+                processing_ms=int((time.monotonic() - started) * 1000),
+                status=status,
+                error_message=error,
+                raw_result=raw,
+                finished_at=datetime.now(timezone.utc),
+            )
         )
-    )
-    db.commit()
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Khong ghi duoc pronunciation_requests (status=%s)", status)
 
 
 def _save_attempt(db, user, reference_text: str, reference_pinyin: str | None, result: dict, audio_ms: int | None) -> Attempt:
@@ -195,121 +215,38 @@ async def assess_pronunciation(
             _log_request(db, user, reference_text, "failed", started, audio_ms, error=f"HTTP {resp.status_code}")
             raise HTTPException(status_code=502, detail=f"Loi goi Azure Speech API: {resp.status_code}")
 
-        azure_data = resp.json()
-        nbest = azure_data.get("NBest", [])
+        try:
+            azure_data = resp.json()
+        except ValueError:
+            _log_request(db, user, reference_text, "failed", started, audio_ms,
+                         error="Azure tra body khong phai JSON: " + resp.text[:500])
+            raise HTTPException(status_code=502, detail="Ket qua tu Azure khong hop le")
+
+        nbest = azure_data.get("NBest") if isinstance(azure_data, dict) else None
         if not nbest:
             _log_request(db, user, reference_text, "rejected", started, audio_ms,
-                         error="Azure khong tra NBest", raw=azure_data)
+                         error="Azure khong tra NBest", raw=azure_data if isinstance(azure_data, dict) else None)
             raise HTTPException(status_code=502, detail="Khong nhan duoc ket qua tu Azure")
 
-        first = nbest[0]
-        pron = first.get("PronunciationAssessment", {})
-        accuracy = float(pron.get("AccuracyScore", 0.0))
-        fluency = float(pron.get("FluencyScore", 0.0))
-        completeness = float(pron.get("CompletenessScore", 0.0))
-        overall = float(pron.get("PronScore", accuracy))
+        try:
+            result = _build_result(nbest[0], reference_text, reference_pinyin)
+        except (KeyError, TypeError, ValueError, AttributeError, IndexError) as e:
+            _log_request(db, user, reference_text, "failed", started, audio_ms,
+                         error=f"Khong doc duoc ket qua Azure: {e!r}"[:1000], raw=azure_data)
+            raise HTTPException(status_code=502, detail="Ket qua tu Azure khong hop le")
 
-        # Chuyen doi sang dinh dang hop dong PronunciationResult
-        chars = [c for c in reference_text if '\u4e00' <= c <= '\u9fff']
-        ref_pinyins = reference_pinyin.strip().split() if reference_pinyin else []
-
-        words_raw = first.get("Words", [])
-        # Duyet tat ca syllables tu Azure (mot Word co the chua nhieu Syllables)
-        azure_syllables = []
-        for w in words_raw:
-            syls = w.get("Syllables")
-            if syls:
-                for s in syls:
-                    azure_syllables.append((w, s))
-            else:
-                azure_syllables.append((w, None))
-
-        syllables = []
-        tone_scores = []
-        for i, c in enumerate(chars):
-            # Lay expected tu reference_pinyin do client gui len
-            if i < len(ref_pinyins):
-                exp_parts = split_pinyin(ref_pinyins[i])
-            else:
-                exp_parts = {"initial": "", "final": "", "tone": 5}
-
-            w_info, s_info = azure_syllables[i] if i < len(azure_syllables) else (None, None)
-
-            s_score = accuracy
-            errs = []
-            act_parts = None
-
-            if w_info is not None:
-                w_pron = w_info.get("PronunciationAssessment", {})
-                err_type = w_pron.get("ErrorType", "None")
-
-                if s_info is not None:
-                    s_pron = s_info.get("PronunciationAssessment", {})
-                    s_score = float(s_pron.get("AccuracyScore", accuracy))
-                    raw_syl = s_info.get("Syllable", "")
-                    act_parts = split_pinyin(raw_syl) if raw_syl else exp_parts
-
-                    phonemes = s_info.get("Phonemes", [])
-                    if phonemes:
-                        for idx, p in enumerate(phonemes):
-                            p_score = float(p.get("PronunciationAssessment", {}).get("AccuracyScore", 100))
-                            if p_score < 60:
-                                if idx == 0 and len(phonemes) > 1:
-                                    errs.append("initial")
-                                else:
-                                    errs.append("final")
-                else:
-                    s_score = float(w_pron.get("AccuracyScore", accuracy))
-                    act_parts = exp_parts
-
-                if err_type == "Omission":
-                    errs.append("missing")
-                    act_parts = None
-                elif err_type == "Mispronunciation" and not errs:
-                    errs.append("initial")
-
-            # Danh gia thanh dieu
-            syl_tone = s_score
-            if act_parts and exp_parts["tone"] != 5:
-                if act_parts["tone"] != exp_parts["tone"] and act_parts["tone"] != 5:
-                    errs.append("tone")
-                    syl_tone = max(0.0, s_score - 40.0)
-            tone_scores.append(syl_tone)
-
-            status = "ok"
-            if s_score < 60 or "missing" in errs:
-                status = "error"
-            elif s_score < 80 or errs:
-                status = "warn"
-
-            unique_errs = list(dict.fromkeys(errs))
-
-            syllables.append({
-                "hanzi": c,
-                "expected": exp_parts,
-                "actual": act_parts,
-                "score": s_score,
-                "status": status,
-                "errors": unique_errs,
-            })
-
-        calc_tone = round(sum(tone_scores) / len(tone_scores), 1) if tone_scores else accuracy
-
-        result = {
-            "overall": overall,
-            "accuracy": accuracy,
-            "tone": calc_tone,
-            "fluency": fluency,
-            "completeness": completeness,
-            "source": "online",
-            "recognized_text": first.get("Display", reference_text),
-            "syllables": syllables,
-        }
-
-        # Luu ket qua vao DB sau moi lan cham online thanh cong (#14)
-        attempt = _save_attempt(db, user, reference_text, reference_pinyin, result, audio_ms)
+        # Luu ket qua vao DB sau moi lan cham online thanh cong (#14).
+        # Loi DB khong duoc lam mat diem cua nguoi hoc: rollback, ghi log va van tra result.
+        attempt_id = None
+        save_error = None
+        try:
+            attempt_id = _save_attempt(db, user, reference_text, reference_pinyin, result, audio_ms).id
+        except Exception as e:
+            db.rollback()
+            save_error = f"Khong luu duoc attempt: {e!r}"[:1000]
+            logger.exception("Khong luu duoc attempt cham phat am online")
         _log_request(db, user, reference_text, "success", started, audio_ms,
-                     raw=azure_data, attempt_id=attempt.id)
+                     error=save_error, raw=azure_data, attempt_id=attempt_id)
         return result
     finally:
         if os.path.exists(tmp_path):
@@ -317,3 +254,111 @@ async def assess_pronunciation(
                 os.remove(tmp_path)
             except Exception:
                 pass
+
+
+def _build_result(first: dict, reference_text: str, reference_pinyin: str | None) -> dict:
+    """Chuyen NBest[0] cua Azure sang dinh dang hop dong PronunciationResult."""
+    pron = first.get("PronunciationAssessment", {})
+    accuracy = float(pron.get("AccuracyScore", 0.0))
+    fluency = float(pron.get("FluencyScore", 0.0))
+    completeness = float(pron.get("CompletenessScore", 0.0))
+    overall = float(pron.get("PronScore", accuracy))
+
+    # Chuyen doi sang dinh dang hop dong PronunciationResult
+    chars = [c for c in reference_text if '\u4e00' <= c <= '\u9fff']
+    ref_pinyins = reference_pinyin.strip().split() if reference_pinyin else []
+
+    words_raw = first.get("Words", [])
+    # Duyet tat ca syllables tu Azure (mot Word co the chua nhieu Syllables)
+    azure_syllables = []
+    for w in words_raw:
+        syls = w.get("Syllables")
+        if syls:
+            for s in syls:
+                azure_syllables.append((w, s))
+        else:
+            azure_syllables.append((w, None))
+
+    syllables = []
+    tone_scores = []
+    for i, c in enumerate(chars):
+        # Lay expected tu reference_pinyin do client gui len
+        if i < len(ref_pinyins):
+            exp_parts = split_pinyin(ref_pinyins[i])
+        else:
+            exp_parts = {"initial": "", "final": "", "tone": 5}
+
+        w_info, s_info = azure_syllables[i] if i < len(azure_syllables) else (None, None)
+
+        s_score = accuracy
+        errs = []
+        act_parts = None
+
+        if w_info is not None:
+            w_pron = w_info.get("PronunciationAssessment", {})
+            err_type = w_pron.get("ErrorType", "None")
+
+            if s_info is not None:
+                s_pron = s_info.get("PronunciationAssessment", {})
+                s_score = float(s_pron.get("AccuracyScore", accuracy))
+                raw_syl = s_info.get("Syllable", "")
+                act_parts = split_pinyin(raw_syl) if raw_syl else exp_parts
+
+                phonemes = s_info.get("Phonemes", [])
+                if phonemes:
+                    for idx, p in enumerate(phonemes):
+                        p_score = float(p.get("PronunciationAssessment", {}).get("AccuracyScore", 100))
+                        if p_score < 60:
+                            if idx == 0 and len(phonemes) > 1:
+                                errs.append("initial")
+                            else:
+                                errs.append("final")
+            else:
+                s_score = float(w_pron.get("AccuracyScore", accuracy))
+                act_parts = exp_parts
+
+            if err_type == "Omission":
+                errs.append("missing")
+                act_parts = None
+            elif err_type == "Mispronunciation" and not errs:
+                errs.append("initial")
+
+        # Danh gia thanh dieu
+        syl_tone = s_score
+        if act_parts and exp_parts["tone"] != 5:
+            if act_parts["tone"] != exp_parts["tone"] and act_parts["tone"] != 5:
+                errs.append("tone")
+                syl_tone = max(0.0, s_score - 40.0)
+        tone_scores.append(syl_tone)
+
+        status = "ok"
+        if s_score < 60 or "missing" in errs:
+            status = "error"
+        elif s_score < 80 or errs:
+            status = "warn"
+
+        unique_errs = list(dict.fromkeys(errs))
+
+        syllables.append({
+            "hanzi": c,
+            "expected": exp_parts,
+            "actual": act_parts,
+            "score": s_score,
+            "status": status,
+            "errors": unique_errs,
+        })
+
+    calc_tone = round(sum(tone_scores) / len(tone_scores), 1) if tone_scores else accuracy
+
+    result = {
+        "overall": overall,
+        "accuracy": accuracy,
+        "tone": calc_tone,
+        "fluency": fluency,
+        "completeness": completeness,
+        "source": "online",
+        "recognized_text": first.get("Display", reference_text),
+        "syllables": syllables,
+    }
+
+    return result

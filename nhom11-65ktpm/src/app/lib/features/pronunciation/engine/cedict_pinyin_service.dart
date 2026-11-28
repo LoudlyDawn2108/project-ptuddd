@@ -38,6 +38,8 @@ class CedictPinyinService implements PinyinService {
       }
       if (units[k] == '十' && d == 1 && !started && omitLeadingOneTen) {
         out.write('十');
+      } else if (units[k] == '千' && d == 2) {
+        out.write('两千'); // 2000 → 两千, không nói 二千
       } else {
         out.write('${_digits[d]}${units[k]}');
       }
@@ -56,7 +58,7 @@ class CedictPinyinService implements PinyinService {
     if (n < 10000) return _readUnder10000(n);
     final high = n ~/ 10000;
     final low = n % 10000;
-    final out = StringBuffer('${_readUnder10000(high)}万');
+    final out = StringBuffer('${high == 2 ? '两' : _readUnder10000(high)}万');
     if (low > 0) {
       if (low < 1000) out.write(_digits[0]);
       out.write(_readUnder10000(low, omitLeadingOneTen: false));
@@ -64,13 +66,69 @@ class CedictPinyinService implements PinyinService {
     return out.toString();
   }
 
+  /// Giờ đọc theo giá trị, riêng 2 giờ là 两点.
+  static String _readHour(String h) => int.parse(h) == 2 ? '两' : readNumber(int.parse(h).toString());
+
+  /// Phút/giây: 05 → 零五, 30 → 三十.
+  static String _readMinute(String m) {
+    final n = int.parse(m);
+    return n < 10 ? '${_digits[0]}${_digits[n]}' : readNumber(n.toString());
+  }
+
+  /// Chuẩn hoá câu mẫu trước khi tra pinyin: chuyển chữ số sang Hán tự theo ngữ cảnh (#12)
+  /// rồi bỏ dấu câu. Thứ tự các bước quan trọng: dạng đặc biệt (ngày, giờ, số điện thoại,
+  /// năm, số mục) phải xử lý trước khi đọc số đếm.
   static String normalize(String input) {
     var text = input.trim();
-    // Số thập phân: 3.5 → 三点五
+
+    // 1. Ngày: 2026-11-28 / 2026/11/28 / 2026.11.28 → 二零二六年十一月二十八日
     text = text.replaceAllMapped(
-      RegExp(r'(\d+)\.(\d+)'),
+      RegExp(r'(?<![\d.\-/])(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?![\d.\-/])'),
+      (m) {
+        final month = int.parse(m[2]!), day = int.parse(m[3]!);
+        if (month < 1 || month > 12 || day < 1 || day > 31) return m[0]!;
+        return '${_readDigits(m[1]!)}年${readNumber('$month')}月${readNumber('$day')}日';
+      },
+    );
+
+    // 2. Giờ: 10:30 → 十点三十分, 10:05 → 十点零五分, 2:00 → 两点, 8:15:20 → 八点十五分二十秒
+    text = text.replaceAllMapped(
+      RegExp(r'(?<!\d)(\d{1,2})[:：](\d{2})(?:[:：](\d{2}))?(?!\d)'),
+      (m) {
+        if (int.parse(m[1]!) > 24 || int.parse(m[2]!) > 59) return m[0]!;
+        final out = StringBuffer('${_readHour(m[1]!)}点');
+        if (int.parse(m[2]!) > 0 || m[3] != null) out.write('${_readMinute(m[2]!)}分');
+        if (m[3] != null) out.write('${_readMinute(m[3]!)}秒');
+        return out.toString();
+      },
+    );
+
+    // 3. Số điện thoại / mã số tách bằng "-" hoặc khoảng trắng (từ 7 chữ số trở lên):
+    //    091-234-5678 → 零九一二三四五六七八, đọc từng chữ số
+    text = text.replaceAllMapped(
+      RegExp(r'(?<![\d.])\d+(?:[-\s]\d+)+(?![\d.])'),
+      (m) {
+        final digits = m[0]!.replaceAll(RegExp(r'[-\s]'), '');
+        return digits.length >= 7 ? _readDigits(digits) : m[0]!;
+      },
+    );
+
+    // 4. Năm: 2026年 → 二零二六年 (đọc từng chữ số)
+    text = text.replaceAllMapped(RegExp(r'(?<!\d)(\d{4})(?=年)'), (m) => _readDigits(m[1]!));
+
+    // 5. Số mục / phiên bản có từ 2 dấu chấm: 1.2.3 → 一点二点三
+    text = text.replaceAllMapped(
+      RegExp(r'(?<![\d.])\d+(?:\.\d+){2,}(?![\d.])'),
+      (m) => m[0]!.split('.').map(readNumber).join('点'),
+    );
+
+    // 6. Số thập phân: 3.5 → 三点五 (phần sau dấu chấm đọc từng chữ số)
+    text = text.replaceAllMapped(
+      RegExp(r'(?<![\d.])(\d+)\.(\d+)(?![\d.])'),
       (m) => '${readNumber(m[1]!)}点${_readDigits(m[2]!)}',
     );
+
+    // 7. Còn lại: số đếm theo giá trị
     text = text.replaceAllMapped(RegExp(r'\d+'), (m) => readNumber(m[0]!));
     final punctRegex = RegExp(r"""[，。！？、；：“”‘’（）《》〈〉【】…—.,!?;:()\[\]"'\-]""");
     return text.replaceAll(punctRegex, '').replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -126,6 +184,8 @@ class CedictPinyinService implements PinyinService {
       '是': 'shì', '有': 'yǒu', '在': 'zài', '不': 'bù', '没': 'méi',
       '想': 'xiǎng', '能': 'néng', '会': 'huì', '可以': 'kěyǐ', '做': 'zuò',
       '天': 'tiān', '年': 'nián', '起': 'qǐ', '看': 'kàn', '个': 'gè', '岁': 'suì',
+      '零': 'líng', '两': 'liǎng', '百': 'bǎi', '千': 'qiān', '万': 'wàn',
+      '点': 'diǎn', '分': 'fēn', '秒': 'miǎo', '月': 'yuè', '日': 'rì',
     };
     fallbackDict.forEach((k, v) {
       dict.putIfAbsent(k, () => v);
