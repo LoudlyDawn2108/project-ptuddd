@@ -169,7 +169,7 @@ void main() {
     });
 
     test('Chuan hoa chu so va bo dau cau', () {
-      expect(CedictPinyinService.normalize('123，你好！'), '一二三你好');
+      expect(CedictPinyinService.normalize('123，你好！'), '一百二十三你好');
       expect(CedictPinyinService.normalize('  0, 5 ?  '), '零 五');
     });
 

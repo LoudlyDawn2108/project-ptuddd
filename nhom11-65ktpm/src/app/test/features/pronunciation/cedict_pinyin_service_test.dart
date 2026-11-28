@@ -36,7 +36,69 @@ void main() {
 
     test('normalizes numbers and punctuation', () async {
       final p = await service.toPinyin('你好！123');
-      expect(p, 'nǐ hǎo yī èr sān');
+      expect(p, 'nǐ hǎo yī bǎi èr shí sān');
+    });
+
+    test('reads integers by value, not digit by digit (#12)', () {
+      String n(String s) => CedictPinyinService.normalize(s);
+      expect(n('0'), '零');
+      expect(n('7'), '七');
+      expect(n('10'), '十');
+      expect(n('15'), '十五');
+      expect(n('20'), '二十');
+      expect(n('23'), '二十三');
+      expect(n('100'), '一百');
+      expect(n('105'), '一百零五');
+      expect(n('110'), '一百一十');
+      expect(n('1005'), '一千零五');
+      expect(n('1010'), '一千零一十');
+      expect(n('2026'), '两千零二十六');
+      expect(n('2000'), '两千');
+      expect(n('20000'), '两万');
+      expect(n('22000'), '两万两千');
+      expect(n('200'), '二百');
+      expect(n('10000'), '一万');
+      expect(n('10010'), '一万零一十');
+      expect(n('35000'), '三万五千');
+      expect(n('我23岁'), '我二十三岁');
+      expect(n('3.5'), '三点五');
+    });
+
+    test('keeps digit-by-digit reading for phone numbers and leading zeros (#12)', () {
+      expect(CedictPinyinService.normalize('0912345678'), '零九一二三四五六七八');
+      expect(CedictPinyinService.normalize('007'), '零零七');
+    });
+
+    test('reads numbers by context: year, date, time, phone, section (review PR #73)', () {
+      String n(String s) => CedictPinyinService.normalize(s);
+      // Năm đọc từng chữ số
+      expect(n('2026年'), '二零二六年');
+      expect(n('我1998年出生'), '我一九九八年出生');
+      expect(n('10年'), '十年'); // "10 năm" vẫn là số đếm
+      // Ngày
+      expect(n('2026-11-28'), '二零二六年十一月二十八日');
+      expect(n('2026/1/5'), '二零二六年一月五日');
+      // Giờ
+      expect(n('10:30'), '十点三十分');
+      expect(n('10:05'), '十点零五分');
+      expect(n('2:00'), '两点');
+      expect(n('8:15:20'), '八点十五分二十秒');
+      // Số điện thoại / mã số có dấu "-" hoặc khoảng trắng
+      expect(n('091-234-5678'), '零九一二三四五六七八');
+      expect(n('0912 345 678'), '零九一二三四五六七八');
+      // Số mục, phiên bản, thập phân
+      expect(n('第1.2课'), '第一点二课');
+      expect(n('1.2.3'), '一点二点三');
+      expect(n('3.14'), '三点一四');
+    });
+
+    test('year and time convert to the expected pinyin (review PR #73)', () async {
+      expect(await service.toPinyin('2026年'), 'èr líng èr liù nián');
+      expect(await service.toPinyin('2:30'), 'liǎng diǎn sān shí fēn');
+    });
+
+    test('23 converts to pinyin èr shí sān (#12)', () async {
+      expect(await service.toPinyin('23'), 'èr shí sān');
     });
 
     test('converts words outside lessons using CC-CEDICT compact', () async {
@@ -104,6 +166,10 @@ void main() {
       // Đứng trước thanh 4: yí
       final y1 = await service.toPinyin('一共', applySandhi: true);
       expect(y1, 'yí gòng');
+
+      // 一个: 个 là thanh 4 → yí gè (#12)
+      expect(await service.toPinyin('一个', applySandhi: true), 'yí gè');
+      expect(await service.toPinyin('一个', applySandhi: false), 'yī gè');
 
       // Đứng trước thanh 1: yì
       final y2 = await service.toPinyin('一天', applySandhi: true);

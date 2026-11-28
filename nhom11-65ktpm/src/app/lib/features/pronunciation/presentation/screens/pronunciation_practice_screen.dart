@@ -9,7 +9,7 @@ import '../../../../core/widgets/glass.dart';
 import '../controllers/pronunciation_controller.dart';
 
 /// Màn hình luyện phát âm và xem phản hồi chi tiết chuẩn Liquid Glass UI.
-/// Chủ sở hữu: Khánh (#15)
+/// Chủ sở hữu: Khanh (#15)
 class PronunciationPracticeScreen extends ConsumerStatefulWidget {
   final String targetHanzi;
   final String targetPinyin;
@@ -187,6 +187,34 @@ class _PronunciationPracticeScreenState extends ConsumerState<PronunciationPract
             ),
           ),
         );
+      } else if (!next.permissionDenied &&
+          next.errorMessage != null &&
+          next.errorMessage != prev?.errorMessage) {
+        // Lỗi khác (ví dụ thiếu gói nhận dạng tiếng Trung #11).
+        // Snackbar đóng (tự tắt hoặc bấm "Đã hiểu") thì xoá lỗi khỏi state,
+        // để lần bấm micro sau gặp lại đúng lỗi này vẫn hiện thông báo.
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(next.errorMessage!),
+            backgroundColor: AppColors.warningOrange,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 8),
+            // SnackBar có action mặc định không tự tắt; ở đây muốn tự tắt sau 8 giây.
+            persist: false,
+            action: SnackBarAction(
+              label: 'Đã hiểu',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        ).closed.then((_) {
+          if (!context.mounted) return;
+          if (ref.read(pronunciationControllerProvider).errorMessage == next.errorMessage) {
+            controller.dismissError();
+          }
+        });
       }
     });
 

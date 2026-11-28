@@ -58,6 +58,7 @@ class _FakeVoiceRecorder implements VoiceRecorder {
 class _FakeSpeechRecognizer implements SpeechRecognizer {
   bool initialized = false;
   String? resultToEmit;
+  String? errorToEmit;
 
   @override
   Future<bool> initialize() async {
@@ -71,6 +72,10 @@ class _FakeSpeechRecognizer implements SpeechRecognizer {
     void Function(double soundLevel)? onSoundLevel,
     void Function(String error)? onError,
   }) async {
+    if (errorToEmit != null) {
+      onError?.call(errorToEmit!);
+      return;
+    }
     if (resultToEmit != null) {
       onResult(resultToEmit!, true);
     }
@@ -241,6 +246,46 @@ void main() {
     // Kiểm tra hiển thị SnackBar thông báo từ chối quyền micro
     expect(find.byType(SnackBar), findsOneWidget);
     expect(find.textContaining('từ chối quyền truy cập Micro'), findsOneWidget);
+  });
+
+  testWidgets('shows install hint and does not score when Chinese speech pack is missing (#11)', (tester) async {
+    speech.errorToEmit = kMissingChineseSpeechPack;
+
+    await tester.pumpWidget(buildTestApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.mic));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.textContaining('gói nhận dạng giọng nói tiếng Trung'), findsOneWidget);
+    // Đã dừng ghi (nút micro hiện lại), không chấm, không ghi sự kiện
+    expect(find.byIcon(Icons.stop), findsNothing);
+    expect(recorder.state, RecorderState.idle);
+    expect(progress.recorded, isEmpty);
+  });
+
+  testWidgets('missing Chinese pack hint shows again on every mic tap, even after auto-dismiss (#11)', (tester) async {
+    speech.errorToEmit = kMissingChineseSpeechPack;
+
+    await tester.pumpWidget(buildTestApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.mic));
+    await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsOneWidget);
+
+    // Không bấm "Đã hiểu": để snackbar tự tắt sau 8 giây
+    await tester.pump(const Duration(seconds: 9));
+    await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsNothing);
+
+    // Bấm micro lần nữa: vẫn phải báo lại, không im lặng dừng ghi
+    await tester.tap(find.byIcon(Icons.mic));
+    await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.textContaining('gói nhận dạng giọng nói tiếng Trung'), findsOneWidget);
+    expect(recorder.state, RecorderState.idle);
   });
 
   testWidgets('assesses pronunciation and records pronunciation_scored learning event (#15)', (tester) async {

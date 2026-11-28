@@ -11,7 +11,7 @@ import 'fake_implementation.dart';
 import 'lesson_repository.dart';
 import 'models/pronunciation.dart';
 
-// ─────────────────────────────────────────────── TTS · Chủ sở hữu: Khánh (#12)
+// ─────────────────────────────────────────────── TTS · Chủ sở hữu: Khanh (#12)
 
 /// Đọc mẫu tiếng Trung. Dùng ở: Phát âm (#15), Từ vựng (#19), Flashcard (#20),
 /// Kiểm tra nghe (#32), Trợ lý AI (#9).
@@ -30,7 +30,7 @@ final ttsServiceProvider = Provider<TtsService>((ref) {
   return tts;
 });
 
-/// Bản thật tối thiểu (flutter_tts, zh-CN). Khánh hoàn thiện ở #12: chọn giọng,
+/// Bản thật tối thiểu (flutter_tts, zh-CN). Khanh hoàn thiện ở #12: chọn giọng,
 /// chuẩn hoá văn bản, đúng tốc độ 1.0x / 0.7x trên cả Android và iOS.
 class FlutterTtsService implements TtsService {
   final FlutterTts _tts = FlutterTts();
@@ -116,7 +116,7 @@ class FlutterTtsService implements TtsService {
   }
 }
 
-// ─────────────────────────────── Nhận dạng giọng nói · Chủ sở hữu: Khánh (#11)
+// ─────────────────────────────── Nhận dạng giọng nói · Chủ sở hữu: Khanh (#11)
 
 /// Nhận dạng giọng nói zh-CN thành chữ (Trợ lý AI #9, Phát âm #15).
 abstract class SpeechRecognizer {
@@ -137,10 +137,33 @@ final speechRecognizerProvider = Provider<SpeechRecognizer>((ref) {
   return speech;
 });
 
+/// Lỗi `SpeechRecognizer.listen` báo qua `onError` khi máy không có gói nhận dạng tiếng Trung (#11).
+/// Màn luyện so sánh đúng chuỗi này để hiện hướng dẫn cài gói.
+const String kMissingChineseSpeechPack =
+    'Máy chưa cài gói nhận dạng giọng nói tiếng Trung (中文 普通话). '
+    'Vào Cài đặt → Ngôn ngữ → Nhận dạng giọng nói (Google) để tải gói tiếng Trung, rồi thử lại.';
+
+/// Chọn locale tiếng Trung trong danh sách máy hỗ trợ (#11).
+/// Trả `null` khi danh sách có dữ liệu nhưng không có `zh`/`cmn`: máy thiếu gói tiếng Trung.
+/// Danh sách rỗng (một số máy không liệt kê) thì vẫn thử `zh-CN`.
+@visibleForTesting
+String? pickChineseLocale(List<String> localeIds) {
+  if (localeIds.isEmpty) return 'zh-CN';
+  String? firstZh;
+  for (final id in localeIds) {
+    final l = id.toLowerCase().replaceAll('_', '-');
+    if (l == 'zh-cn' || l.startsWith('cmn-hans')) return id;
+    if (firstZh == null && (l.startsWith('zh') || l.startsWith('cmn'))) firstZh = id;
+  }
+  return firstZh;
+}
+
 class SpeechToTextRecognizer implements SpeechRecognizer {
   final SpeechToText _speech = SpeechToText();
   bool _ready = false;
   String _cachedLocale = 'zh-CN';
+  bool _missingChinese = false;
+  Future<void>? _localeCheck;
   void Function(String error)? _currentOnError;
 
   @override
@@ -158,12 +181,12 @@ class SpeechToTextRecognizer implements SpeechRecognizer {
         _cachedLocale = 'zh-CN';
         // Truy vấn danh sách locale bất đồng bộ ở background, không chờ chặn main thread
         // giúp triệt tiêu độ trễ 2-3s và buffer underrun gây nổ rè trên máy ảo
-        _speech.locales().then((locales) {
-          final zhLocale = locales.firstWhere(
-            (l) => l.localeId.toLowerCase().startsWith('zh') || l.localeId.toLowerCase().startsWith('cmn'),
-            orElse: () => locales.isNotEmpty ? locales.first : LocaleName('zh-CN', 'Chinese'),
-          );
-          _cachedLocale = zhLocale.localeId;
+        // Không có locale zh/cmn thì đánh dấu thiếu gói, KHÔNG lặng lẽ dùng locale khác (#11).
+        _localeCheck = _speech.locales().then((locales) {
+          final zh = pickChineseLocale(locales.map((l) => l.localeId).toList());
+          _missingChinese = zh == null;
+          if (zh != null) _cachedLocale = zh;
+          if (_missingChinese) debugPrint('STT: không có locale zh/cmn trong $locales');
         }).catchError((_) {});
       }
     } catch (e) {
@@ -182,6 +205,13 @@ class SpeechToTextRecognizer implements SpeechRecognizer {
     _currentOnError = onError;
     if (!await initialize()) {
       onError?.call('Không thể khởi tạo bộ nhận dạng giọng nói');
+      return;
+    }
+
+    // Lần đầu: chờ kết quả kiểm tra locale tối đa 1.5s
+    await _localeCheck?.timeout(const Duration(milliseconds: 1500), onTimeout: () {});
+    if (_missingChinese) {
+      onError?.call(kMissingChineseSpeechPack);
       return;
     }
 
@@ -218,7 +248,7 @@ class SpeechToTextRecognizer implements SpeechRecognizer {
   }
 }
 
-// ─────────────────────────────────────────── Ghi âm · Chủ sở hữu: Khánh (#11)
+// ─────────────────────────────────────────── Ghi âm · Chủ sở hữu: Khanh (#11)
 
 enum RecorderState { idle, recording, processing, done }
 
@@ -279,7 +309,7 @@ class FakeVoiceRecorder with FakeImplementation implements VoiceRecorder {
   }
 }
 
-// ──────────────────────────────────────────────── Pinyin · Chủ sở hữu: Khánh (#12)
+// ──────────────────────────────────────────────── Pinyin · Chủ sở hữu: Khanh (#12)
 
 /// Đổi chữ Hán sang Pinyin có dấu.
 abstract class PinyinService {

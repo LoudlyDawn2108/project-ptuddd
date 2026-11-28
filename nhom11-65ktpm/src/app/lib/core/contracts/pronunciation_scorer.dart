@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'fake_implementation.dart';
 import 'models/pronunciation.dart';
 
-/// Chấm phát âm. Chủ sở hữu: **Khánh** (#13 offline, #14 online + tự chuyển).
+/// Chấm phát âm. Chủ sở hữu: **Khanh** (#13 offline, #14 online + tự chuyển).
 ///
 /// Màn hình (#15) chỉ gọi [assess]; việc chọn online hay offline nằm trong bản thật.
 abstract class PronunciationScorer {
@@ -22,7 +22,7 @@ abstract class PronunciationScorer {
 final pronunciationScorerProvider = Provider<PronunciationScorer>((ref) => FakePronunciationScorer());
 
 /// Cài đặt chế độ chấm. Màn Cài đặt của **Đệ** (#24) đổi và lưu giá trị;
-/// bộ chấm kết hợp của **Khánh** (#14) đọc `ref.watch(scoringModeProvider)`.
+/// bộ chấm kết hợp của **Khanh** (#14) đọc `ref.watch(scoringModeProvider)`.
 enum ScoringMode { preferOnline, offlineOnly }
 
 final scoringModeProvider = NotifierProvider<ScoringModeNotifier, ScoringMode>(ScoringModeNotifier.new);
@@ -144,7 +144,7 @@ SyllableParts splitPinyin(String syllable) {
 }
 
 /// Mẹo phát âm (khẩu hình, vị trí lưỡi). Dữ liệu: **Hoa** (#22) trong
-/// `assets/data/pronunciation_tips.json`; màn phản hồi của Khánh (#15) đọc qua đây.
+/// `assets/data/pronunciation_tips.json`; màn phản hồi của Khanh (#15) đọc qua đây.
 class PronunciationTip {
   final String sound; // "zh", "ü", "tone3"...
   final String title;

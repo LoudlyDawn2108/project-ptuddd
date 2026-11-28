@@ -25,12 +25,12 @@ Toàn bộ nằm trong `src/app/lib/core/contracts/`. Chỉ cần `import 'packa
 |---|---|---|---|---|
 | `LessonRepository` | `lessonRepositoryProvider` | `AssetLessonRepository` đọc `assets/dev/lessons/` | Hoa #18 #19 | Bài học, Flashcard, Lộ trình, Kiểm tra, AI |
 | `SrsService` | `srsServiceProvider` | `FakeSrsService` (từ của 2 bài đầu) | Hoa #20 | Trang chủ, Bài học |
-| `TtsService` | `ttsServiceProvider` | *(đã thật)* `FlutterTtsService` | Khánh #12 | Phát âm, Từ vựng, Flashcard, Kiểm tra, AI |
-| `PinyinService` | `pinyinServiceProvider` | `FakePinyinService` (tra từ bài mẫu) | Khánh #12 | Phát âm, Viết chữ |
-| `SpeechRecognizer` | `speechRecognizerProvider` | *(đã thật)* `SpeechToTextRecognizer` | Khánh #11 | Phát âm, AI |
-| `VoiceRecorder` | `voiceRecorderProvider` | `FakeVoiceRecorder` (sóng âm hình sin) | Khánh #11 | Phát âm |
-| `PronunciationScorer` | `pronunciationScorerProvider` | `FakePronunciationScorer` | Khánh #13 #14 | Phát âm |
-| `scoringModeProvider` | (Notifier) | *(thật, chưa lưu xuống máy)* mặc định ưu tiên online | Đệ #24 (màn Cài đặt + lưu) | Khánh #14 |
+| `TtsService` | `ttsServiceProvider` | *(đã thật)* `FlutterTtsService` | Khanh #12 | Phát âm, Từ vựng, Flashcard, Kiểm tra, AI |
+| `PinyinService` | `pinyinServiceProvider` | `FakePinyinService` (tra từ bài mẫu) | Khanh #12 | Phát âm, Viết chữ |
+| `SpeechRecognizer` | `speechRecognizerProvider` | *(đã thật)* `SpeechToTextRecognizer` | Khanh #11 | Phát âm, AI |
+| `VoiceRecorder` | `voiceRecorderProvider` | `FakeVoiceRecorder` (sóng âm hình sin) | Khanh #11 | Phát âm |
+| `PronunciationScorer` | `pronunciationScorerProvider` | `FakePronunciationScorer` | Khanh #13 #14 | Phát âm |
+| `scoringModeProvider` | (Notifier) | *(thật, chưa lưu xuống máy)* mặc định ưu tiên online | Đệ #24 (màn Cài đặt + lưu) | Khanh #14 |
 | `pronunciationTipsProvider` | (FutureProvider) | file mẫu 3 mẹo | Hoa #22 (dữ liệu) | Phát âm #15 |
 | `HanziRepository` | `hanziRepositoryProvider` | `FakeHanziRepository` (一二三十人大口) | Đệ #26 | Viết chữ, Trang chủ |
 | `Outbox` | `outboxProvider` | `MemoryOutbox` (RAM, chưa retry) | Đệ #23 #25 | ProgressService và mọi dữ liệu cần đồng bộ |
@@ -44,7 +44,7 @@ Menu dev trong app (nút cờ lê trên trang chủ, chỉ có ở bản debug) 
 ```dart
 final pronunciationScorerProvider = Provider<PronunciationScorer>((ref) {
   if (AppConfig.fakeData) return FakePronunciationScorer();      // --dart-define=FAKE_DATA=true
-  return HybridPronunciationScorer(ref.watch(apiClientProvider)); // bản thật của Khánh
+  return HybridPronunciationScorer(ref.watch(apiClientProvider)); // bản thật của Khanh
 });
 ```
 
@@ -153,7 +153,7 @@ Giới hạn: tối đa 200 sự kiện/lô, `xp` 0–500, `duration_sec` ≤ 4 
 |---|---|---|---|---|---|
 | `lesson_completed` | Hoa #19 / Bảo #29 | mã bài | điểm bài | – | 20 |
 | `srs_review` | Hoa #20 | `Word.key` | – | `{"quality": 0..5, "card_type": "…"}` | 1 |
-| `pronunciation_scored` | Khánh #15 | câu / từ mẫu (chữ Hán) | `overall` | `{"tones": {"1":…,"4":…}, "source": "online"}` | 2, ≥ 90 điểm: 5 |
+| `pronunciation_scored` | Khanh #15 | câu / từ mẫu (chữ Hán) | `overall` | `{"tones": {"1":…,"4":…}, "source": "online"}` | 2, ≥ 90 điểm: 5 |
 | `character_written` | Đệ #27 | chữ Hán | điểm chữ | `{"mode": "watch/trace/free", "wrong_strokes": n, "hints": n}` | 2 |
 | `ai_session_finished` | **server tự ghi** khi kết thúc phiên AI | id phiên | điểm tổng kết | `{"lesson_id": n}` | 10 |
 | `quiz_completed` | Bảo #32 | id node lộ trình | % điểm | `{"passed": true}` | đạt: 50, không đạt: 10 |
@@ -187,7 +187,7 @@ Dùng **chung** cho engine offline (#13) và API online (#14). Màn phản hồi
 ```
 
 - `PinyinService.toPinyin(hanzi)` trả thanh điệu gốc (hiển thị); `toPinyin(hanzi, applySandhi: true)` trả cách đọc sau biến điệu, nên dùng làm `expected` khi chấm.
-- Thanh điệu: 1–4, **5 = thanh nhẹ**. Tách âm tiết bằng `splitPinyin()` (trong `pronunciation_scorer.dart`). Khánh có thể thay bằng bản đầy đủ hơn ở #13.
+- Thanh điệu: 1–4, **5 = thanh nhẹ**. Tách âm tiết bằng `splitPinyin()` (trong `pronunciation_scorer.dart`). Khanh có thể thay bằng bản đầy đủ hơn ở #13.
 - Ghi âm (`VoiceRecorder.stop()`) trả `Recording(path, duration)`: file WAV 16 kHz mono. Bản giả trả `path = null`.
 
 ---
@@ -206,6 +206,9 @@ File `src/app/assets/data/pronunciation_tips.json` (Hoa #22). Màn phản hồi 
 ```
 
 Bộ **test case chấm điểm** (#22 → #16): `nhom11-65ktpm/data/pronunciation/test_cases.json`, mỗi phần tử gồm `{ "id", "reference": {"hanzi","pinyin"}, "spoken_pinyin": "zi4 ji3", "expected": {"min_overall","max_overall","error_syllables":[0]}, "note": "nhầm zh → z" }`.
+  - `spoken_pinyin`: pinyin người học đọc, thanh điệu bằng số (1–4, 5 = thanh nhẹ), cách nhau bằng dấu cách.
+  - `error_syllables`: chỉ số (từ 0) các âm tiết engine phải ghi nhận có lỗi (`errors` không rỗng), kể cả lỗi nhẹ vẫn tô xanh như nhầm zh → z. `[]` = không âm tiết nào có lỗi.
+  - Test `src/app/test/features/pronunciation/pronunciation_test_cases_test.dart` tự đọc mọi ca trong file: thêm ca mới chỉ cần sửa JSON.
 
 ---
 
@@ -236,7 +239,7 @@ await ref.read(outboxProvider).enqueue(OutboxItem(kind: 'srs_card', payload: car
 | `event` | `POST /api/events` (theo lô) | có sẵn |
 | `srs_card` | `POST /api/sync/push` | Hoa #20 + Đệ #25 |
 | `writing_attempt` | `POST /api/sync/push` | Đệ #27 #25 |
-| `pronunciation_attempt` | `POST /api/sync/push` | Khánh #14 + Đệ #25 |
+| `pronunciation_attempt` | `POST /api/sync/push` | Khanh #14 + Đệ #25 |
 
 `id` của item (UUID) cũng là id bản ghi trên server, nhờ đó gửi lại không bị ghi trùng. `MemoryOutbox` hiện chỉ gửi `event`; bản SQLite + retry + ánh xạ các `kind` khác là việc của Đệ (#23, #25).
 

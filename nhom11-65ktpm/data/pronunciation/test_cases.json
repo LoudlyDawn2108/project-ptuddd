@@ -1,0 +1,100 @@
+[
+  {
+    "id": "ok-ni-hao",
+    "reference": { "hanzi": "你好", "pinyin": "nǐ hǎo" },
+    "spoken_pinyin": "ni3 hao3",
+    "expected": { "min_overall": 95, "max_overall": 100, "error_syllables": [] },
+    "note": "đọc đúng hoàn toàn"
+  },
+  {
+    "id": "ok-xie-xie-neutral",
+    "reference": { "hanzi": "谢谢", "pinyin": "xiè xie" },
+    "spoken_pinyin": "xie4 xie5",
+    "expected": { "min_overall": 95, "max_overall": 100, "error_syllables": [] },
+    "note": "đọc đúng, âm tiết sau là thanh nhẹ (5)"
+  },
+  {
+    "id": "initial-zh-z",
+    "reference": { "hanzi": "中国", "pinyin": "zhōng guó" },
+    "spoken_pinyin": "zong1 guo2",
+    "expected": { "min_overall": 85, "max_overall": 99, "error_syllables": [0] },
+    "note": "nhầm zh → z (không uốn lưỡi), lỗi điển hình của người Việt, trừ nhẹ"
+  },
+  {
+    "id": "initial-sh-s",
+    "reference": { "hanzi": "是", "pinyin": "shì" },
+    "spoken_pinyin": "si4",
+    "expected": { "min_overall": 85, "max_overall": 99, "error_syllables": [0] },
+    "note": "nhầm sh → s (không uốn lưỡi)"
+  },
+  {
+    "id": "initial-n-l",
+    "reference": { "hanzi": "你", "pinyin": "nǐ" },
+    "spoken_pinyin": "li3",
+    "expected": { "min_overall": 85, "max_overall": 99, "error_syllables": [0] },
+    "note": "nhầm n → l (giọng một số vùng miền Bắc)"
+  },
+  {
+    "id": "final-an-ang",
+    "reference": { "hanzi": "看", "pinyin": "kàn" },
+    "spoken_pinyin": "kang4",
+    "expected": { "min_overall": 85, "max_overall": 99, "error_syllables": [0] },
+    "note": "nhầm vận mẫu an → ang (âm mũi trước / sau)"
+  },
+  {
+    "id": "final-u-umlaut",
+    "reference": { "hanzi": "女", "pinyin": "nǚ" },
+    "spoken_pinyin": "nu3",
+    "expected": { "min_overall": 85, "max_overall": 99, "error_syllables": [0] },
+    "note": "đọc ü thành u (không tròn môi)"
+  },
+  {
+    "id": "tone-3-as-2",
+    "reference": { "hanzi": "你", "pinyin": "nǐ" },
+    "spoken_pinyin": "ni2",
+    "expected": { "min_overall": 75, "max_overall": 90, "error_syllables": [0] },
+    "note": "nhầm thanh 3 → thanh 2 (giống dấu hỏi / sắc), trừ nhẹ hơn các nhầm thanh khác"
+  },
+  {
+    "id": "tone-3-as-4",
+    "reference": { "hanzi": "好", "pinyin": "hǎo" },
+    "spoken_pinyin": "hao4",
+    "expected": { "min_overall": 65, "max_overall": 80, "error_syllables": [0] },
+    "note": "nhầm thanh 3 → thanh 4 (đọc như dấu nặng)"
+  },
+  {
+    "id": "tone-first-syllable",
+    "reference": { "hanzi": "老师", "pinyin": "lǎo shī" },
+    "spoken_pinyin": "lao2 shi1",
+    "expected": { "min_overall": 85, "max_overall": 95, "error_syllables": [0] },
+    "note": "sai thanh ở âm tiết đầu, âm tiết sau đúng"
+  },
+  {
+    "id": "missing-middle",
+    "reference": { "hanzi": "我是学生", "pinyin": "wǒ shì xué sheng" },
+    "spoken_pinyin": "wo3 shi4 sheng5",
+    "expected": { "min_overall": 65, "max_overall": 80, "error_syllables": [2] },
+    "note": "đọc thiếu âm tiết 学 ở giữa câu"
+  },
+  {
+    "id": "missing-last",
+    "reference": { "hanzi": "再见", "pinyin": "zài jiàn" },
+    "spoken_pinyin": "zai4",
+    "expected": { "min_overall": 40, "max_overall": 60, "error_syllables": [1] },
+    "note": "đọc thiếu âm tiết cuối"
+  },
+  {
+    "id": "extra-syllable",
+    "reference": { "hanzi": "你好", "pinyin": "nǐ hǎo" },
+    "spoken_pinyin": "ni3 men5 hao3",
+    "expected": { "min_overall": 95, "max_overall": 100, "error_syllables": [] },
+    "note": "đọc thừa âm tiết (们). Engine offline hiện bỏ qua âm thừa khi căn chỉnh, không trừ điểm"
+  },
+  {
+    "id": "wrong-initial-and-tone",
+    "reference": { "hanzi": "妈妈", "pinyin": "mā ma" },
+    "spoken_pinyin": "ba4 ba5",
+    "expected": { "min_overall": 60, "max_overall": 80, "error_syllables": [0, 1] },
+    "note": "sai thanh mẫu m → b ở cả hai âm tiết, âm đầu sai thêm thanh"
+  }
+]
