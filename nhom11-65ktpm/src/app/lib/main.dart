@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/constants/app_constants.dart';
 import 'core/contracts/contracts.dart';
+import 'core/network/dev_http_overrides.dart';
 import 'core/routing/app_router.dart';
 import 'core/theme/app_scroll_behavior.dart';
 import 'core/theme/app_theme.dart';
@@ -10,6 +12,7 @@ import 'features/pronunciation/pronunciation_providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  installDevHttpOverrides(AppConstants.defaultBaseUrl);
   await GlassLens.init();
   runApp(
     ProviderScope(

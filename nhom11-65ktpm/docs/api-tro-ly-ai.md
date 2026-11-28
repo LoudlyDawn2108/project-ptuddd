@@ -28,7 +28,7 @@ Server làm trung gian gọi AI (Claude mặc định, hoặc OpenAI). Khóa API
    | `done` | `{turn_count, max_turns, should_finish, messages_used_today, messages_limit}` | `should_finish = true` → mời người học xem tổng kết |
    | `error` | `{message, retryable}` | Bỏ bong bóng AI tạm; câu của người học không bị tính lượt, có thể gửi lại |
 
-3. `POST /api/ai/conversations/{id}/finish` → tổng kết: `summary.overall_score`, `turns`, `correct_sentences`, `error_counts`, `top_errors`, `grammar_points_to_review`, `comment_vi`.
+3. `POST /api/ai/conversations/{id}/finish` → tổng kết: `summary.overall_score`, `turns`, `correct_sentences`, `error_counts`, `top_errors`, `grammar_points_to_review` (mẫu câu của bài, vd. `A 是 B`), `comment_vi`.
 4. `GET /api/ai/conversations?lesson_id=` (lịch sử), `GET /api/ai/conversations/{id}` (xem lại kèm phân tích từng câu), `GET /api/ai/usage` (lượt còn lại hôm nay).
 
 Mã lỗi: `404` bài học/phiên không tồn tại hoặc không phải của bạn · `409` phiên đã kết thúc hoặc đủ lượt · `422` câu trống/quá dài · `429` hết lượt hôm nay · `502` AI lỗi khi mở đầu phiên · `503` server chưa cấu hình AI.
@@ -42,7 +42,8 @@ Mã lỗi: `404` bài học/phiên không tồn tại hoặc không phải của
   "corrected_pinyin": "wǒ shì xuésheng.",
   "components": [{"text": "我", "pinyin": "wǒ", "role": "subject", "label_vi": "Chủ ngữ"}],
   "errors": [{"span": "我学生", "correction": "我是学生", "error_type": "verb_usage",
-              "explanation_vi": "Thiếu động từ 是 ...", "grammar_point_id": "gp-shi"}],
+              "explanation_vi": "Thiếu động từ 是 ...", "grammar_point_id": "gp-shi",
+              "grammar_point_label": "A 是 B"}],
   "error_types": ["verb_usage"],
   "grammar_point_ids": ["gp-shi"],
   "score": 70,
