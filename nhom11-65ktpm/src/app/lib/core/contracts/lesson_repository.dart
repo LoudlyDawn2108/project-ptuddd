@@ -76,7 +76,10 @@ class ApiLessonRepository extends LessonRepository {
   final Map<int, Lesson> _cache = {};
   int _contentVersion = 0;
 
-  ApiLessonRepository(this._api, {LessonRepository? fallback}) : _fallback = fallback;
+  ApiLessonRepository(ApiClient api, {LessonRepository? fallback})
+    : this._(api, fallback);
+
+  ApiLessonRepository._(this._api, this._fallback);
 
   static int _levelRank(String level) {
     final index = _levelOrder.indexOf(level);
