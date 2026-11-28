@@ -365,9 +365,10 @@ class _ComponentBreakdown extends StatelessWidget {
       spacing: 6,
       runSpacing: 8,
       children: [
-        for (final c in components)
+        // Key kèm vị trí: một câu có thể lặp cùng chữ + vai trò (vd. hai chữ 是 làm vị ngữ).
+        for (final (i, c) in components.indexed)
           Container(
-            key: Key('component-${c.role}-${c.text}'),
+            key: Key('component-$i-${c.role}-${c.text}'),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: ShapeDecoration(
               color: (componentColors[c.role] ?? componentColors['other']!).withValues(alpha: 0.14),
