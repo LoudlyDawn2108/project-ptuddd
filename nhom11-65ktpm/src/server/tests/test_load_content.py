@@ -6,13 +6,19 @@ import pytest
 from sqlalchemy import func, select
 
 from app.models.content import Course, Lesson, Word
-from scripts.load_content import DATA_DIR, load_content, read_lesson_files
+from scripts.load_content import DATA_DIR, _default_data_dir, load_content, read_lesson_files
 
 
 def _copy_lessons(target: Path) -> Path:
     data_dir = target / "lessons"
     shutil.copytree(DATA_DIR, data_dir)
     return data_dir
+
+
+def test_default_data_dir_uses_lessons_data_dir_environment(monkeypatch, tmp_path):
+    monkeypatch.setenv("LESSONS_DATA_DIR", str(tmp_path))
+
+    assert _default_data_dir() == tmp_path
 
 
 def test_load_content_is_idempotent_and_updates_version_and_words(db_session, tmp_path):

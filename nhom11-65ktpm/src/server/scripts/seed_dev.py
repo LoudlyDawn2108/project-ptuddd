@@ -5,14 +5,14 @@
     python -m scripts.seed_dev --reset    # xóa tài khoản demo rồi tạo lại dữ liệu học tập từ đầu
 
 Dữ liệu tạo ra:
-- Các khóa học và bài học đọc từ `data/lessons/<cấp>/lesson-*.json`.
+- Các khóa học và bài học được nạp, kiểm định từ `data/lessons/<cấp>/lesson-*.json`.
 - Lộ trình HSK1 gồm các bài HSK1 và bài kiểm tra cuối chặng.
 - Tài khoản demo (xem DEMO_USERS) kèm tiến độ lộ trình, thẻ flashcard đến hạn hôm nay
   và 30 ngày sự kiện học tập giả (`learning_events`), từ đó tự tính thống kê ngày,
   streak và XP như dữ liệu thật.
 
-Đây KHÔNG phải script nạp nội dung chính thức (issue #18). Khi script đó xong, nội dung
-bài học sẽ lấy từ đó; script này chỉ để có dữ liệu test và luôn từ chối chạy ở production.
+Nội dung bài học được nạp bởi `scripts.load_content`; script này tạo thêm dữ liệu demo
+và luôn từ chối chạy ở production.
 """
 
 from __future__ import annotations
@@ -197,6 +197,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if settings.ENVIRONMENT == "production":
         print("Từ chối chạy: ENVIRONMENT=production. Script này chỉ dành cho dev.", file=sys.stderr)
+        return 1
+
+    if not any(DATA_DIR.glob("**/lesson-*.json")):
+        print(
+            f"Không tìm thấy bài học nào trong {DATA_DIR} "
+            "(đặt LESSONS_DATA_DIR nếu để chỗ khác).",
+            file=sys.stderr,
+        )
         return 1
 
     with get_session_factory()() as db:

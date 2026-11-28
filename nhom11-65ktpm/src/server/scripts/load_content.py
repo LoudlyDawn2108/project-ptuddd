@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -20,7 +21,15 @@ from app.db.session import get_session_factory
 from app.models.content import Course, Lesson, Word
 from app.schemas.content import LessonContent
 
-DATA_DIR = Path(__file__).resolve().parents[3] / "data" / "lessons"
+
+def _default_data_dir() -> Path:
+    env_data_dir = os.environ.get("LESSONS_DATA_DIR")
+    if env_data_dir:
+        return Path(env_data_dir)
+    return Path(__file__).resolve().parents[3] / "data" / "lessons"
+
+
+DATA_DIR = _default_data_dir()
 
 COURSE_META: dict[str, tuple[str, str, int]] = {
     "PINYIN": ("Pinyin", "Khóa học nền tảng phát âm tiếng Trung.", 0),
