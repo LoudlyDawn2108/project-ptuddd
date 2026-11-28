@@ -18,12 +18,10 @@ bài học sẽ lấy từ đó; script này chỉ để có dữ liệu test v�
 from __future__ import annotations
 
 import argparse
-import json
 import random
 import sys
 import uuid
 from datetime import date, datetime, timedelta, timezone
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, select
@@ -32,14 +30,13 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.security import hash_password
 from app.db.session import get_session_factory
-from app.models.content import Course, Lesson, Word
+from app.models.content import Lesson
 from app.models.path import PathNode, PathStage, UserPathProgress
 from app.models.practice import SrsCard
 from app.models.progress import EventType
 from app.models.user import User
 from app.services.progress import NewEvent, record_events
-
-DATA_DIR = Path(__file__).resolve().parents[3] / "data" / "lessons"
+from scripts.load_content import DATA_DIR, load_content, read_lesson_files
 
 DEMO_USERS = [
     # Tài khoản chính: đã học xong bài 1, đang học bài 2.
@@ -50,82 +47,14 @@ DEMO_USERS = [
      "display_name": "Newbie", "level": "beginner", "xp_total": 0, "with_progress": False},
 ]
 
-def _lesson_specs() -> list[dict]:
-    """Đọc mọi bài trong `data/lessons/<cấp>/lesson-*.json` (định dạng: docs/hop-dong-du-lieu.md)."""
-    specs = []
-    for path in sorted(DATA_DIR.glob("*/lesson-*.json")):
-        raw = json.loads(path.read_text(encoding="utf-8"))
-        specs.append({
-            "code": raw["id"], "order": raw["order"], "title": raw["title"],
-            "description": raw.get("description"), "topic": raw.get("topic"),
-            "level": raw.get("level", "HSK1"),
-            "grammar_points": raw.get("grammarPoints"), "ai_scenario": raw.get("aiScenario"),
-            "content_version": raw.get("contentVersion", 1),
-            "words": [
-                {"code": v["id"], "hanzi": v["hanzi"], "pinyin": v["pinyin"], "han_viet": v.get("hanViet"),
-                 "meaning_vi": v["meaningVi"], "example": v.get("example")}
-                for v in raw["vocabulary"]
-            ],
-        })
-    return sorted(specs, key=lambda s: (s["level"], s["order"]))
+def _lesson_specs():
+    """Đọc và kiểm định toàn bộ bài học qua bộ nạp chính thức."""
+    return read_lesson_files(DATA_DIR)
 
 
 def seed_content(db: Session) -> list[Lesson]:
-    lessons: list[Lesson] = []
-    specs = _lesson_specs()
-    topics_by_level: dict[str, list[str]] = {}
-    for spec in specs:
-        topic = spec["topic"]
-        if topic:
-            topics = topics_by_level.setdefault(spec["level"], [])
-            if topic not in topics:
-                topics.append(topic)
-
-    for spec in specs:
-        level = spec["level"]
-        topics = topics_by_level.get(level)
-        if not topics:
-            raise ValueError(f"No lesson topics found for course level {level!r}")
-
-        course = db.scalar(select(Course).where(Course.code == level))
-        if course is None:
-            course = Course(code=level)
-            db.add(course)
-        course.title = {"HSK1": "HSK 1", "HSK2": "HSK 2", "PINYIN": "Pinyin"}.get(level, level)
-        course.description = f"Từ vựng sơ cấp theo chủ đề: {', '.join(topics)}."
-        course.order_index = {"PINYIN": 0, "HSK1": 1, "HSK2": 2}.get(level, 3)
-        db.flush()
-
-        lesson = db.scalar(select(Lesson).where(Lesson.code == spec["code"]))
-        if lesson is None:
-            lesson = Lesson(code=spec["code"], course_id=course.id)
-            db.add(lesson)
-        lesson.course_id = course.id
-        lesson.order_index = spec["order"]
-        lesson.title = spec["title"]
-        lesson.description = spec["description"]
-        lesson.topic = spec["topic"]
-        lesson.grammar_points = spec["grammar_points"]
-        lesson.ai_scenario = spec["ai_scenario"]
-        lesson.content_version = spec["content_version"]
-        db.flush()
-
-        existing = {w.code: w for w in lesson.words}
-        for idx, w in enumerate(spec["words"]):
-            word = existing.get(w["code"])
-            if word is None:
-                word = Word(lesson_id=lesson.id, code=w["code"])
-                lesson.words.append(word)
-            word.order_index = idx
-            word.hanzi = w["hanzi"]
-            word.pinyin = w["pinyin"]
-            word.han_viet = w["han_viet"]
-            word.meaning_vi = w["meaning_vi"]
-            word.example = w["example"]
-            word.hsk_level = int(level[3:]) if level.startswith("HSK") and level[3:].isdigit() else None
-        lessons.append(lesson)
-    db.flush()
-    return lessons
+    """Dùng chung hàm nạp và kiểm định dữ liệu chính thức từ scripts/load_content.py."""
+    return load_content(db)
 
 
 def seed_path(db: Session, lessons: list[Lesson]) -> list[PathNode]:
