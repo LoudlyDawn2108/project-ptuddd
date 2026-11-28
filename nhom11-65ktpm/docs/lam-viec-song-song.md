@@ -10,7 +10,7 @@ Cả nhóm cùng code một app. Nếu chia việc theo tầng (người làm d�
 |---|---|---|
 | Phúc | Khung app, backend nền, trợ lý AI, khung hợp đồng + sự kiện học tập | #4–#10 |
 | Hoa | Nội dung bài học, từ vựng, flashcard SM-2, dữ liệu mẹo phát âm | #17 #18 #19 #20 #22 |
-| Khánh | Toàn bộ phát âm: ghi âm, nhận dạng, TTS, pinyin, chấm offline/online, màn hình, test | #11–#16 |
+| Khanh | Toàn bộ phát âm: ghi âm, nhận dạng, TTS, pinyin, chấm offline/online, màn hình, test | #11–#16 |
 | Đệ | Viết chữ Hán, tài khoản, lưu trữ offline + đồng bộ, thông báo + bảng xếp hạng | #23–#28 |
 | Bảo | Lộ trình, kiểm tra đầu vào, kiểm tra cuối chặng, trang chủ, thống kê, huy hiệu, kiểm thử E2E | #21 #29–#34 |
 

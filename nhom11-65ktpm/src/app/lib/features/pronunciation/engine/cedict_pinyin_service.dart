@@ -5,7 +5,7 @@ import '../../../../core/contracts/lesson_repository.dart';
 import '../../../../core/contracts/speech_services.dart';
 
 /// Bộ chuyển đổi Hán tự sang Pinyin và xử lý biến điệu theo CC-CEDICT.
-/// Chủ sở hữu: Khánh (#12)
+/// Chủ sở hữu: Khanh (#12)
 class CedictPinyinService implements PinyinService {
   final LessonRepository _lessons;
   Map<String, String>? _dict;

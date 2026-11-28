@@ -9,7 +9,7 @@ import '../../../../core/widgets/glass.dart';
 import '../controllers/pronunciation_controller.dart';
 
 /// Màn hình luyện phát âm và xem phản hồi chi tiết chuẩn Liquid Glass UI.
-/// Chủ sở hữu: Khánh (#15)
+/// Chủ sở hữu: Khanh (#15)
 class PronunciationPracticeScreen extends ConsumerStatefulWidget {
   final String targetHanzi;
   final String targetPinyin;

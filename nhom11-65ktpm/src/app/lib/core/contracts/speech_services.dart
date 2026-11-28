@@ -11,7 +11,7 @@ import 'fake_implementation.dart';
 import 'lesson_repository.dart';
 import 'models/pronunciation.dart';
 
-// ─────────────────────────────────────────────── TTS · Chủ sở hữu: Khánh (#12)
+// ─────────────────────────────────────────────── TTS · Chủ sở hữu: Khanh (#12)
 
 /// Đọc mẫu tiếng Trung. Dùng ở: Phát âm (#15), Từ vựng (#19), Flashcard (#20),
 /// Kiểm tra nghe (#32), Trợ lý AI (#9).
@@ -30,7 +30,7 @@ final ttsServiceProvider = Provider<TtsService>((ref) {
   return tts;
 });
 
-/// Bản thật tối thiểu (flutter_tts, zh-CN). Khánh hoàn thiện ở #12: chọn giọng,
+/// Bản thật tối thiểu (flutter_tts, zh-CN). Khanh hoàn thiện ở #12: chọn giọng,
 /// chuẩn hoá văn bản, đúng tốc độ 1.0x / 0.7x trên cả Android và iOS.
 class FlutterTtsService implements TtsService {
   final FlutterTts _tts = FlutterTts();
@@ -116,7 +116,7 @@ class FlutterTtsService implements TtsService {
   }
 }
 
-// ─────────────────────────────── Nhận dạng giọng nói · Chủ sở hữu: Khánh (#11)
+// ─────────────────────────────── Nhận dạng giọng nói · Chủ sở hữu: Khanh (#11)
 
 /// Nhận dạng giọng nói zh-CN thành chữ (Trợ lý AI #9, Phát âm #15).
 abstract class SpeechRecognizer {
@@ -248,7 +248,7 @@ class SpeechToTextRecognizer implements SpeechRecognizer {
   }
 }
 
-// ─────────────────────────────────────────── Ghi âm · Chủ sở hữu: Khánh (#11)
+// ─────────────────────────────────────────── Ghi âm · Chủ sở hữu: Khanh (#11)
 
 enum RecorderState { idle, recording, processing, done }
 
@@ -309,7 +309,7 @@ class FakeVoiceRecorder with FakeImplementation implements VoiceRecorder {
   }
 }
 
-// ──────────────────────────────────────────────── Pinyin · Chủ sở hữu: Khánh (#12)
+// ──────────────────────────────────────────────── Pinyin · Chủ sở hữu: Khanh (#12)
 
 /// Đổi chữ Hán sang Pinyin có dấu.
 abstract class PinyinService {
