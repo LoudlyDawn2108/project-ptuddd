@@ -1,5 +1,6 @@
 """Cấu hình ứng dụng đọc từ biến môi trường / file .env (pydantic-settings)."""
 
+import os
 from functools import lru_cache
 
 from pydantic import model_validator
@@ -93,6 +94,10 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    # Khi chạy pytest (ENVIRONMENT=test) bỏ qua file .env trên máy để test
+    # không phụ thuộc cấu hình cá nhân (vd. OPENAI_REASONING_EFFORT_ENABLED=false).
+    if os.environ.get("ENVIRONMENT") == "test":
+        return Settings(_env_file=None)
     return Settings()
 
 

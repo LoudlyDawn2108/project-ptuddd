@@ -34,7 +34,7 @@ void main() {
       expect(find.text('wǒ shì xuésheng.'), findsOneWidget);
 
       // Thành phần câu có nhãn tiếng Việt.
-      expect(find.byKey(const Key('component-subject-我')), findsOneWidget);
+      expect(find.byKey(const Key('component-0-subject-我')), findsOneWidget);
       expect(find.text('Chủ ngữ'), findsOneWidget);
       expect(find.text('Vị ngữ'), findsOneWidget);
       expect(find.text('Tân ngữ'), findsOneWidget);
@@ -45,7 +45,24 @@ void main() {
       expect(find.text('Dùng sai động từ'), findsOneWidget);
       expect(find.text('我是学生'), findsOneWidget);
       expect(find.text('Thiếu động từ 是.'), findsOneWidget);
-      expect(find.text('Điểm NP: gp-shi'), findsOneWidget);
+      expect(find.text('Ngữ pháp: A 是 B'), findsOneWidget);
+      expect(find.textContaining('gp-shi'), findsNothing);
+    });
+
+    testWidgets('repeated component (same text + role) does not crash', (tester) async {
+      // Câu thật từ QA: "是的，我是学生。" có hai chữ 是 cùng làm vị ngữ.
+      final json = grammarJson(correct: false)
+        ..['components'] = [
+          {'text': '是', 'pinyin': 'shì', 'role': 'predicate', 'label_vi': 'Vị ngữ'},
+          {'text': '我', 'pinyin': 'wǒ', 'role': 'subject', 'label_vi': 'Chủ ngữ'},
+          {'text': '是', 'pinyin': 'shì', 'role': 'predicate', 'label_vi': 'Vị ngữ'},
+          {'text': '学生', 'pinyin': 'xuésheng', 'role': 'object', 'label_vi': 'Tân ngữ'},
+        ];
+      await tester.pumpWidget(
+          MaterialApp(home: Scaffold(body: GrammarAnalysisView(feedback: GrammarFeedback.fromJson(json)))));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('Vị ngữ'), findsNWidgets(2));
     });
 
     testWidgets('correct sentence shows no errors', (tester) async {

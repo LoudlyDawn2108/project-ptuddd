@@ -15,11 +15,23 @@ cd nhom11-65ktpm/src/server
 cp .env.example .env        # sửa SECRET_KEY, POSTGRES_PASSWORD, ANTHROPIC_API_KEY...
 docker compose up -d --build
 curl -k https://localhost/api/health
+docker compose exec api python -m scripts.seed_dev --reset   # bài học + tài khoản demo (chỉ dev)
 ```
+
+- `data/lessons/` được mount chỉ đọc vào container (`LESSONS_DATA_DIR`), sửa bài xong chạy lại lệnh seed là cập nhật.
+- Trong container, `127.0.0.1` là chính container. Dịch vụ chạy trên máy (vd. proxy AI tương thích OpenAI) thì đặt `OPENAI_BASE_URL=http://host.docker.internal:<cổng>/v1` và cho dịch vụ đó lắng nghe `0.0.0.0`.
 
 - Swagger: <https://localhost/docs> (trình duyệt sẽ cảnh báo vì chứng chỉ self-signed tự sinh).
 - Trùng cổng 80/443/5432 thì đổi `HTTP_PORT`, `HTTPS_PORT`, `POSTGRES_PORT` trong `.env`.
-- App Flutter trên Android Emulator gọi `https://10.0.2.2/api` (hoặc gọi thẳng API `http://10.0.2.2:8000/api` khi chạy uvicorn không qua Docker).
+- App Flutter gọi stack Docker qua HTTPS tự ký: chạy bản debug với `--dart-define=DEV_TRUST_SELF_SIGNED=true` (chỉ tin chứng chỉ của host trong `API_BASE_URL`, bản release bỏ qua cờ này):
+  ```bash
+  # Máy ảo Android
+  flutter run --dart-define=API_BASE_URL=https://10.0.2.2/api --dart-define=DEV_TRUST_SELF_SIGNED=true
+  # Máy thật qua adb
+  adb reverse tcp:8443 tcp:443
+  flutter run --dart-define=API_BASE_URL=https://localhost:8443/api --dart-define=DEV_TRUST_SELF_SIGNED=true
+  ```
+  Không dùng Docker thì vẫn gọi thẳng uvicorn `http://10.0.2.2:8000/api` như cũ.
 
 ## Triển khai lên VPS với HTTPS thật (Let's Encrypt)
 
@@ -44,7 +56,7 @@ gunzip -c backup_2026-11-21.sql.gz | docker compose exec -T db psql -U postgres 
 
 ## CI (GitHub Actions)
 
-Workflow nằm ở `nhom11-65ktpm/.github/workflows/ci.yml` gồm 3 job: `backend` (Alembic trên PostgreSQL 16 + pytest), `mobile` (flutter analyze + test), `docker` (build image và gọi `/api/health` qua HTTPS).
+Workflow nằm ở `nhom11-65ktpm/.github/workflows/ci.yml` gồm 3 job: `backend` (Alembic trên PostgreSQL 16 + pytest), `mobile` (flutter analyze + test), `docker` (build image, gọi `/api/health` qua HTTPS, seed trong container rồi đăng nhập tài khoản demo).
 
 Vì quy chuẩn học phần chỉ cho commit trong thư mục nhóm, file workflow không nằm ở `.github/` gốc kho nên GitHub **chưa tự chạy**. Muốn bật trên kho Fork, copy file lên gốc (không đưa vào PR gửi giảng viên):
 

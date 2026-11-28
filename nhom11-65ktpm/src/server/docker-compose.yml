@@ -36,6 +36,15 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-chailish_db}
       ENVIRONMENT: ${ENVIRONMENT:-development}
+      LESSONS_DATA_DIR: /app/data/lessons
+    volumes:
+      # Bài học JSON dùng chung với app, để chạy seed trong container:
+      #   docker compose exec api python -m scripts.seed_dev --reset
+      - ../../data/lessons:/app/data/lessons:ro
+    # Gọi dịch vụ chạy trên máy host (vd. proxy AI tương thích OpenAI) bằng
+    # OPENAI_BASE_URL=http://host.docker.internal:<cổng>/v1 — 127.0.0.1 trong container là chính container.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy
