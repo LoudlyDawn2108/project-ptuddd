@@ -12,16 +12,66 @@ class CedictPinyinService implements PinyinService {
 
   CedictPinyinService(this._lessons);
 
-  static const Map<String, String> _numberToHanzi = {
-    '0': '零', '1': '一', '2': '二', '3': '三', '4': '四',
-    '5': '五', '6': '六', '7': '七', '8': '八', '9': '九', '10': '十',
-  };
+  static const List<String> _digits = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+
+  /// Đọc từng chữ số (dùng cho số điện thoại, số có 0 ở đầu, phần thập phân).
+  static String _readDigits(String digits) => digits.split('').map((d) => _digits[int.parse(d)]).join();
+
+  /// Đọc số 0..9999 theo giá trị: 23 → 二十三, 105 → 一百零五, 1010 → 一千零一十.
+  /// [omitLeadingOneTen]: 10..19 đứng đầu đọc 十… thay vì 一十… (sau 万 thì giữ 一十).
+  static String _readUnder10000(int n, {bool omitLeadingOneTen = true}) {
+    if (n == 0) return _digits[0];
+    const units = ['千', '百', '十', ''];
+    final parts = [n ~/ 1000, n ~/ 100 % 10, n ~/ 10 % 10, n % 10];
+    final out = StringBuffer();
+    var started = false;
+    var zeroPending = false;
+    for (var k = 0; k < 4; k++) {
+      final d = parts[k];
+      if (d == 0) {
+        if (started) zeroPending = true;
+        continue;
+      }
+      if (zeroPending) {
+        out.write(_digits[0]);
+        zeroPending = false;
+      }
+      if (units[k] == '十' && d == 1 && !started && omitLeadingOneTen) {
+        out.write('十');
+      } else {
+        out.write('${_digits[d]}${units[k]}');
+      }
+      started = true;
+    }
+    return out.toString();
+  }
+
+  /// Đọc số nguyên theo cách nói tiếng Trung (#12).
+  /// Số có 0 ở đầu (mã, số điện thoại) hoặc dài hơn 8 chữ số thì đọc từng chữ số.
+  static String readNumber(String digits) {
+    if ((digits.length > 1 && digits.startsWith('0')) || digits.length > 8) {
+      return _readDigits(digits);
+    }
+    final n = int.parse(digits);
+    if (n < 10000) return _readUnder10000(n);
+    final high = n ~/ 10000;
+    final low = n % 10000;
+    final out = StringBuffer('${_readUnder10000(high)}万');
+    if (low > 0) {
+      if (low < 1000) out.write(_digits[0]);
+      out.write(_readUnder10000(low, omitLeadingOneTen: false));
+    }
+    return out.toString();
+  }
 
   static String normalize(String input) {
     var text = input.trim();
-    _numberToHanzi.forEach((digit, hanzi) {
-      text = text.replaceAll(digit, hanzi);
-    });
+    // Số thập phân: 3.5 → 三点五
+    text = text.replaceAllMapped(
+      RegExp(r'(\d+)\.(\d+)'),
+      (m) => '${readNumber(m[1]!)}点${_readDigits(m[2]!)}',
+    );
+    text = text.replaceAllMapped(RegExp(r'\d+'), (m) => readNumber(m[0]!));
     final punctRegex = RegExp(r"""[，。！？、；：“”‘’（）《》〈〉【】…—.,!?;:()\[\]"'\-]""");
     return text.replaceAll(punctRegex, '').replaceAll(RegExp(r'\s+'), ' ').trim();
   }

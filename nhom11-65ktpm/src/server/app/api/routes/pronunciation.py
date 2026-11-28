@@ -4,10 +4,14 @@ import os
 import tempfile
 import json
 import re
+import time
+from datetime import datetime, timezone
+
 import httpx
 
 from app.core.config import settings
-from app.api.deps import CurrentUser
+from app.api.deps import CurrentUser, DbSession
+from app.models.pronunciation import Attempt, PronunciationRequest, SyllableResult
 
 router = APIRouter(prefix="/pronunciation", tags=["pronunciation"])
 
@@ -50,9 +54,91 @@ def split_pinyin(syllable: str) -> dict:
             return {"initial": init, "final": s[len(init):], "tone": tone}
     return {"initial": "", "final": s, "tone": tone}
 
+def _wav_duration_ms(content: bytes) -> int | None:
+    """Uoc luong thoi luong WAV PCM tu header (byte rate o offset 28). Khong doc duoc thi None."""
+    if len(content) < 44 or content[:4] != b"RIFF" or content[8:12] != b"WAVE":
+        return None
+    byte_rate = int.from_bytes(content[28:32], "little")
+    if byte_rate <= 0:
+        return None
+    return int((len(content) - 44) * 1000 / byte_rate)
+
+
+def _log_request(
+    db,
+    user,
+    reference_text: str,
+    status: str,
+    started: float,
+    audio_ms: int | None,
+    error: str | None = None,
+    raw: dict | None = None,
+    attempt_id=None,
+) -> None:
+    """Ghi nhat ky moi lan goi Azure vao pronunciation_requests (#14)."""
+    db.add(
+        PronunciationRequest(
+            user_id=user.id,
+            attempt_id=attempt_id,
+            provider="azure",
+            reference_text=reference_text[:255],
+            audio_duration_ms=audio_ms,
+            processing_ms=int((time.monotonic() - started) * 1000),
+            status=status,
+            error_message=error,
+            raw_result=raw,
+            finished_at=datetime.now(timezone.utc),
+        )
+    )
+    db.commit()
+
+
+def _save_attempt(db, user, reference_text: str, reference_pinyin: str | None, result: dict, audio_ms: int | None) -> Attempt:
+    """Luu ket qua cham online thanh cong vao attempts + syllable_results (#14)."""
+    attempt = Attempt(
+        user_id=user.id,
+        reference_text=reference_text[:255],
+        reference_pinyin=(reference_pinyin or None) and reference_pinyin[:255],
+        recognized_text=(result.get("recognized_text") or "")[:255] or None,
+        mode="online",
+        overall_score=result["overall"],
+        accuracy_score=result["accuracy"],
+        tone_score=result["tone"],
+        completeness_score=result["completeness"],
+        fluency_score=result["fluency"],
+        duration_ms=audio_ms,
+        client_created_at=datetime.now(timezone.utc),
+    )
+    for pos, syl in enumerate(result["syllables"]):
+        exp = syl.get("expected") or {}
+        act = syl.get("actual")
+        errs = syl.get("errors") or []
+        missing = act is None
+        attempt.syllables.append(
+            SyllableResult(
+                position=pos,
+                hanzi=syl.get("hanzi"),
+                expected_initial=exp.get("initial") or None,
+                expected_final=exp.get("final") or None,
+                expected_tone=exp.get("tone"),
+                actual_initial=None if missing else (act.get("initial") or None),
+                actual_final=None if missing else (act.get("final") or None),
+                actual_tone=None if missing else act.get("tone"),
+                initial_correct=not missing and "initial" not in errs,
+                final_correct=not missing and "final" not in errs,
+                tone_correct=not missing and "tone" not in errs,
+                score=syl.get("score"),
+            )
+        )
+    db.add(attempt)
+    db.flush()
+    return attempt
+
+
 @router.post("/assess")
 async def assess_pronunciation(
     user: CurrentUser,
+    db: DbSession,
     reference_text: str = Form(..., min_length=1),
     audio_file: UploadFile = File(...),
     reference_pinyin: Optional[str] = Form(None),
@@ -76,6 +162,9 @@ async def assess_pronunciation(
         tmp.write(content)
         tmp_path = tmp.name
 
+    started = time.monotonic()
+    audio_ms = _wav_duration_ms(content)
+
     try:
         url = f"https://{settings.AZURE_SPEECH_REGION}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=zh-CN"
         pron_params = {
@@ -91,16 +180,26 @@ async def assess_pronunciation(
             "Pronunciation-Assessment": json.dumps(pron_params),
             "Accept": "application/json",
         }
-        async with httpx.AsyncClient() as client:
-            with open(tmp_path, "rb") as f:
-                resp = await client.post(url, headers=headers, content=f.read(), timeout=10.0)
+        try:
+            async with httpx.AsyncClient() as client:
+                with open(tmp_path, "rb") as f:
+                    resp = await client.post(url, headers=headers, content=f.read(), timeout=10.0)
+        except httpx.TimeoutException:
+            _log_request(db, user, reference_text, "timeout", started, audio_ms, error="Azure timeout")
+            raise HTTPException(status_code=504, detail="Azure Speech API qua thoi gian cho")
+        except httpx.HTTPError as e:
+            _log_request(db, user, reference_text, "failed", started, audio_ms, error=str(e)[:1000])
+            raise HTTPException(status_code=502, detail="Khong ket noi duoc Azure Speech API")
 
         if resp.status_code != 200:
+            _log_request(db, user, reference_text, "failed", started, audio_ms, error=f"HTTP {resp.status_code}")
             raise HTTPException(status_code=502, detail=f"Loi goi Azure Speech API: {resp.status_code}")
 
         azure_data = resp.json()
         nbest = azure_data.get("NBest", [])
         if not nbest:
+            _log_request(db, user, reference_text, "rejected", started, audio_ms,
+                         error="Azure khong tra NBest", raw=azure_data)
             raise HTTPException(status_code=502, detail="Khong nhan duoc ket qua tu Azure")
 
         first = nbest[0]
@@ -196,7 +295,7 @@ async def assess_pronunciation(
 
         calc_tone = round(sum(tone_scores) / len(tone_scores), 1) if tone_scores else accuracy
 
-        return {
+        result = {
             "overall": overall,
             "accuracy": accuracy,
             "tone": calc_tone,
@@ -206,6 +305,12 @@ async def assess_pronunciation(
             "recognized_text": first.get("Display", reference_text),
             "syllables": syllables,
         }
+
+        # Luu ket qua vao DB sau moi lan cham online thanh cong (#14)
+        attempt = _save_attempt(db, user, reference_text, reference_pinyin, result, audio_ms)
+        _log_request(db, user, reference_text, "success", started, audio_ms,
+                     raw=azure_data, attempt_id=attempt.id)
+        return result
     finally:
         if os.path.exists(tmp_path):
             try:

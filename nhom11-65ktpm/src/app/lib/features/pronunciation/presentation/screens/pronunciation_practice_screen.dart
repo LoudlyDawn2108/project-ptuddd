@@ -187,6 +187,23 @@ class _PronunciationPracticeScreenState extends ConsumerState<PronunciationPract
             ),
           ),
         );
+      } else if (!next.permissionDenied &&
+          next.errorMessage != null &&
+          next.errorMessage != prev?.errorMessage) {
+        // Lỗi khác (ví dụ thiếu gói nhận dạng tiếng Trung #11)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.errorMessage!),
+            backgroundColor: AppColors.warningOrange,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 8),
+            action: SnackBarAction(
+              label: 'Đã hiểu',
+              textColor: Colors.white,
+              onPressed: () => controller.dismissError(),
+            ),
+          ),
+        );
       }
     });
 

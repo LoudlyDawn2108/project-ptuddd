@@ -246,6 +246,16 @@ class PronunciationController extends Notifier<PronunciationState> {
         },
         onError: (err) {
           debugPrint('SpeechRecognizer note: $err');
+          if (err == kMissingChineseSpeechPack) {
+            // Máy không nhận dạng được tiếng Trung: dừng ghi, không chấm sai ngôn ngữ (#11)
+            _cleanupTimers();
+            voiceRecorder.cancel().catchError((_) {});
+            state = state.copyWith(
+              isRecording: false,
+              currentAmplitude: 0.0,
+              errorMessage: kMissingChineseSpeechPack,
+            );
+          }
         },
       );
     } catch (e) {

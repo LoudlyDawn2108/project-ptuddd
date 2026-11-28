@@ -1,5 +1,8 @@
 import httpx
+from sqlalchemy import select
+
 from app.core.config import settings
+from app.models.pronunciation import Attempt, PronunciationRequest, SyllableResult
 
 def test_health_check(client):
     resp = client.get("/api/health")
@@ -148,3 +151,164 @@ def test_pronunciation_assess_success_mock_azure(client, auth_headers, monkeypat
     assert syl2["hanzi"] == "好"
     assert syl2["expected"] == {"initial": "h", "final": "ao", "tone": 3}
     assert syl2["status"] == "ok"
+
+
+def _wav_bytes(duration_ms: int = 1000) -> bytes:
+    """WAV PCM 16 kHz mono 16-bit toi gian (header 44 byte + du lieu im lang)."""
+    byte_rate = 16000 * 2
+    data = bytes(byte_rate * duration_ms // 1000)
+    header = (
+        b"RIFF" + (36 + len(data)).to_bytes(4, "little") + b"WAVE"
+        + b"fmt " + (16).to_bytes(4, "little") + (1).to_bytes(2, "little") + (1).to_bytes(2, "little")
+        + (16000).to_bytes(4, "little") + byte_rate.to_bytes(4, "little")
+        + (2).to_bytes(2, "little") + (16).to_bytes(2, "little")
+        + b"data" + len(data).to_bytes(4, "little")
+    )
+    return header + data
+
+
+def _mock_azure(monkeypatch, status_code=200, payload=None, exc=None):
+    monkeypatch.setattr(settings, "AZURE_SPEECH_KEY", "test_mock_key_123")
+    monkeypatch.setattr(settings, "AZURE_SPEECH_REGION", "eastasia")
+
+    class MockResponse:
+        def __init__(self):
+            self.status_code = status_code
+
+        def json(self):
+            return payload
+
+    async def mock_post(*args, **kwargs):
+        if exc is not None:
+            raise exc
+        return MockResponse()
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
+
+
+_AZURE_NI_HAO_TONE_ERROR = {
+    "RecognitionStatus": "Success",
+    "NBest": [
+        {
+            "Display": "你好",
+            "PronunciationAssessment": {
+                "AccuracyScore": 80.0, "FluencyScore": 85.0, "CompletenessScore": 100.0, "PronScore": 82.0,
+            },
+            "Words": [
+                {
+                    "Word": "你好",
+                    "PronunciationAssessment": {"AccuracyScore": 80.0, "ErrorType": "None"},
+                    "Syllables": [
+                        {"Syllable": "nǐ", "PronunciationAssessment": {"AccuracyScore": 95.0}},
+                        {"Syllable": "hào", "PronunciationAssessment": {"AccuracyScore": 65.0}},
+                    ],
+                }
+            ],
+        }
+    ],
+}
+
+
+def test_assess_success_saves_attempt_syllables_and_request_log(client, auth_headers, db_session, monkeypatch):
+    """#14 buoc 3: cham online thanh cong thi luu attempts + syllable_results + pronunciation_requests."""
+    _mock_azure(monkeypatch, payload=_AZURE_NI_HAO_TONE_ERROR)
+
+    resp = client.post(
+        "/api/pronunciation/assess",
+        data={"reference_text": "你好", "reference_pinyin": "nǐ hǎo"},
+        files={"audio_file": ("test.wav", _wav_bytes(1200), "audio/wav")},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+
+    attempts = db_session.scalars(select(Attempt)).all()
+    assert len(attempts) == 1
+    a = attempts[0]
+    assert a.mode == "online"
+    assert a.reference_text == "你好"
+    assert a.reference_pinyin == "nǐ hǎo"
+    assert a.overall_score == body["overall"] == 82.0
+    assert a.tone_score == body["tone"]
+    assert a.duration_ms == 1200
+
+    syls = db_session.scalars(select(SyllableResult).order_by(SyllableResult.position)).all()
+    assert [s.hanzi for s in syls] == ["你", "好"]
+    assert all(s.attempt_id == a.id for s in syls)
+    assert (syls[0].expected_tone, syls[0].actual_tone, syls[0].tone_correct) == (3, 3, True)
+    # 好: doc thanh 4 thay vi thanh 3
+    assert (syls[1].expected_tone, syls[1].actual_tone, syls[1].tone_correct) == (3, 4, False)
+    assert syls[1].initial_correct and syls[1].final_correct
+
+    logs = db_session.scalars(select(PronunciationRequest)).all()
+    assert len(logs) == 1
+    assert logs[0].status == "success"
+    assert logs[0].attempt_id == a.id
+    assert logs[0].user_id == a.user_id
+    assert logs[0].audio_duration_ms == 1200
+    assert logs[0].raw_result["NBest"][0]["Display"] == "你好"
+
+
+def test_assess_omitted_syllable_saved_as_not_correct(client, auth_headers, db_session, monkeypatch):
+    payload = {
+        "NBest": [{
+            "Display": "你",
+            "PronunciationAssessment": {"AccuracyScore": 50.0, "FluencyScore": 60.0,
+                                        "CompletenessScore": 50.0, "PronScore": 50.0},
+            "Words": [
+                {"Word": "你", "PronunciationAssessment": {"AccuracyScore": 95.0, "ErrorType": "None"}},
+                {"Word": "好", "PronunciationAssessment": {"AccuracyScore": 0.0, "ErrorType": "Omission"}},
+            ],
+        }],
+    }
+    _mock_azure(monkeypatch, payload=payload)
+    resp = client.post(
+        "/api/pronunciation/assess",
+        data={"reference_text": "你好", "reference_pinyin": "nǐ hǎo"},
+        files={"audio_file": ("test.wav", _wav_bytes(), "audio/wav")},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200, resp.text
+    syls = db_session.scalars(select(SyllableResult).order_by(SyllableResult.position)).all()
+    assert syls[1].actual_tone is None
+    assert not (syls[1].initial_correct or syls[1].final_correct or syls[1].tone_correct)
+
+
+def test_assess_azure_error_logs_failed_request_without_attempt(client, auth_headers, db_session, monkeypatch):
+    _mock_azure(monkeypatch, status_code=401, payload={})
+    resp = client.post(
+        "/api/pronunciation/assess",
+        data={"reference_text": "你好"},
+        files={"audio_file": ("test.wav", _wav_bytes(), "audio/wav")},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 502
+    assert db_session.scalars(select(Attempt)).all() == []
+    logs = db_session.scalars(select(PronunciationRequest)).all()
+    assert [(l.status, l.attempt_id) for l in logs] == [("failed", None)]
+    assert "401" in logs[0].error_message
+
+
+def test_assess_azure_timeout_returns_504_and_logs(client, auth_headers, db_session, monkeypatch):
+    _mock_azure(monkeypatch, exc=httpx.ReadTimeout("slow"))
+    resp = client.post(
+        "/api/pronunciation/assess",
+        data={"reference_text": "你好"},
+        files={"audio_file": ("test.wav", _wav_bytes(), "audio/wav")},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 504
+    logs = db_session.scalars(select(PronunciationRequest)).all()
+    assert [l.status for l in logs] == ["timeout"]
+
+
+def test_assess_without_key_does_not_write_db(client, auth_headers, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "AZURE_SPEECH_KEY", "")
+    resp = client.post(
+        "/api/pronunciation/assess",
+        data={"reference_text": "你好"},
+        files={"audio_file": ("test.wav", _wav_bytes(), "audio/wav")},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 503
+    assert db_session.scalars(select(PronunciationRequest)).all() == []

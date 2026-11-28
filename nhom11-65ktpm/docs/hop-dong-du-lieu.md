@@ -206,6 +206,9 @@ File `src/app/assets/data/pronunciation_tips.json` (Hoa #22). Màn phản hồi 
 ```
 
 Bộ **test case chấm điểm** (#22 → #16): `nhom11-65ktpm/data/pronunciation/test_cases.json`, mỗi phần tử gồm `{ "id", "reference": {"hanzi","pinyin"}, "spoken_pinyin": "zi4 ji3", "expected": {"min_overall","max_overall","error_syllables":[0]}, "note": "nhầm zh → z" }`.
+  - `spoken_pinyin`: pinyin người học đọc, thanh điệu bằng số (1–4, 5 = thanh nhẹ), cách nhau bằng dấu cách.
+  - `error_syllables`: chỉ số (từ 0) các âm tiết engine phải ghi nhận có lỗi (`errors` không rỗng), kể cả lỗi nhẹ vẫn tô xanh như nhầm zh → z. `[]` = không âm tiết nào có lỗi.
+  - Test `src/app/test/features/pronunciation/pronunciation_test_cases_test.dart` tự đọc mọi ca trong file: thêm ca mới chỉ cần sửa JSON.
 
 ---
 
